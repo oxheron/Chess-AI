@@ -30,6 +30,18 @@ std::array<char, 8> sliding_offsets({
     -1, 1, 8, -8, 7, -9, 9, -7
 });
 
+// List of offsets for the knight, in x,y form
+std::array<std::pair<char, char>, 8> knight_offsets({
+    {-1, 2},
+    { 1, 2},
+    { 2, 1},
+    { 2,-1},
+    { 1,-2},
+    {-1,-2},
+    {-2,-1},
+    {-2, 1}
+});
+
 // Generate a map of how far a square is from the edge
 // Left, Right, Top, Bottom, northwest, southwest, northeast, southeast
 void gen_num_sq_to_edge()
@@ -57,7 +69,7 @@ void gen_num_sq_to_edge()
 Board::Board()
 {
     gen_num_sq_to_edge();
-    for (auto& p : board) p = Piece();
+    for (auto& p : board) p = std::make_shared<Piece>();
 }
 
 // Load a fen string into the board
@@ -83,17 +95,19 @@ void Board::load_fen(std::string fen)
             {
                 if (std::isupper(fen[fen_idx])) 
                 {
-                    // Square isnt being saved somehow
-                    Piece p(ctop_t[std::tolower(fen[fen_idx])], Color::WHITE, i * 8 + j);
-
-                    board[i * 8 + j] = p;
-                    white.push_back(p);
+                    char sq = i * 8 + j;
+                    board[sq]->piece_t = ctop_t[fen[fen_idx]];
+                    board[sq]->square = sq;
+                    board[sq]->color = Color::WHITE;
+                    white.push_back(board[sq]);
                 }
                 else
                 {
-                    Piece p(ctop_t[fen[fen_idx]], Color::BLACK, i * 8 + j);
-                    board[i * 8 + j] = p;
-                    black.push_back(p);
+                    char sq = i * 8 + j;
+                    board[sq]->piece_t = ctop_t[fen[fen_idx]];
+                    board[sq]->square = sq;
+                    board[sq]->color = Color::BLACK;
+                    black.push_back(board[sq]);
                 }
             }
             else
@@ -131,9 +145,10 @@ std::vector<Move> Board::generate_moves(Color color)
     std::vector<Move> return_v;
     for (auto piece : (color == Color::WHITE ? white : black))
     {
+        if (piece.piece_t == PieceType::KNIGHT) knight_moves(piece, return_v);
         if (piece.piece_t == PieceType::BISHOP) bishop_moves(piece, return_v);
         else if (piece.piece_t == PieceType::ROOK) rook_moves(piece, return_v);
-        else if (piece.piece_t == PieceType::QUEEN) bishop_moves(piece, return_v);
+        else if (piece.piece_t == PieceType::QUEEN) queen_moves(piece, return_v);
         else if (piece.piece_t == PieceType::KING) king_moves(piece, return_v);
     }
     return return_v;
@@ -194,6 +209,23 @@ void Board::queen_moves(Piece piece, std::vector<Move>& moves)
 {
     rook_moves(piece, moves);
     bishop_moves(piece, moves);
+}
+
+// Calculate all valid knight moves from a table
+void Board::knight_moves(Piece piece, std::vector<Move>& moves)
+{
+    char kx = piece % 8;
+    char ky = piece / 8;
+
+    for (auto [x, y] : knight_offsets)
+    {
+        char tx = x + kx;
+        char ty = y + ky;
+        if (tx > 7 || tx < 0 || ty > 7 || ty < 0) continue;
+        char new_sq = tx + ty * 8;
+        if (board[new_sq].color == piece.color) continue;
+        moves.push_back({piece.square, new_sq});
+    }
 }
 
 // Calculate all valid king moves

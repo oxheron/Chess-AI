@@ -7,6 +7,7 @@
 #include <string>
 #include <list> 
 #include <vector>
+#include <memory>
 
 // Holds data for a move, returned in the move piece function
 struct Move
@@ -20,11 +21,11 @@ class Board
 {
 private:
     // Board for checking moves
-    std::array<Piece, 64> board;
+    std::array<std::shared_ptr<Piece>, 64> board;
 
     // Lists of pieces 
-    std::list<Piece> white;
-    std::list<Piece> black;
+    std::list<std::shared_ptr<Piece>> white;
+    std::list<std::shared_ptr<Piece>> black;
 
     // Stuff about castling
     bool white_KC = false;
@@ -60,5 +61,6 @@ private:
     void rook_moves(Piece piece, std::vector<Move>& moves);
     void bishop_moves(Piece piece, std::vector<Move>& moves);
     void queen_moves(Piece piece, std::vector<Move>& moves);
+    void knight_moves(Piece piece, std::vector<Move>& moves);
     void king_moves(Piece piece, std::vector<Move>& moves);
 };
