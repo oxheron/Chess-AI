@@ -23,7 +23,7 @@ private:
     // Board for checking moves
     std::array<std::shared_ptr<Piece>, 64> board;
 
-    // Lists of pieces 
+    // Lists of pieces (the pointers are linked to the board)
     std::list<std::shared_ptr<Piece>> white;
     std::list<std::shared_ptr<Piece>> black;
 
@@ -50,11 +50,11 @@ public:
     // The most important function, generates all of the possible moves for the ai to choose from
     std::vector<Move> generate_moves(Color color);
 
-    // Change the position of a piece, without rules (execpt a piece cannot occupy the same space as a piece)
-    void change_pos();
-
-    // A legal move
+    // A move
     void move();
+
+    // Do a move backwards
+    void unmove();
 
 private:
     // Generate all legal rook moves from a piece, puts result in moves
@@ -63,4 +63,5 @@ private:
     void queen_moves(Piece piece, std::vector<Move>& moves);
     void knight_moves(Piece piece, std::vector<Move>& moves);
     void king_moves(Piece piece, std::vector<Move>& moves);
+    void pawn_moves(Piece piece, std::vector<Move>& moves);
 };

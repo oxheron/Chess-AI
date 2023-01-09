@@ -31,7 +31,7 @@ std::array<char, 8> sliding_offsets({
 });
 
 // List of offsets for the knight, in x,y form
-std::array<std::pair<char, char>, 8> knight_offsets({
+std::array<std::pair<char, char>, 8> knight_offsets({{
     {-1, 2},
     { 1, 2},
     { 2, 1},
@@ -40,7 +40,18 @@ std::array<std::pair<char, char>, 8> knight_offsets({
     {-1,-2},
     {-2,-1},
     {-2, 1}
-});
+}});
+
+// List of pawn offsets based on direction and color
+std::array<std::array<char, 3>, 2> pawn_offset = {{
+    {-8, -9, -7}, 
+    { 8,  9,  7}
+}};
+
+// Pawn starting squares
+std::array<char, 2> start_y = {
+    6, 1
+};
 
 // Generate a map of how far a square is from the edge
 // Left, Right, Top, Bottom, northwest, southwest, northeast, southeast
@@ -143,13 +154,15 @@ void Board::load_fen(std::string fen)
 std::vector<Move> Board::generate_moves(Color color)
 {
     std::vector<Move> return_v;
+    // Go through every piece of the color and generate moves for it
     for (auto piece : (color == Color::WHITE ? white : black))
     {
-        if (piece.piece_t == PieceType::KNIGHT) knight_moves(piece, return_v);
-        if (piece.piece_t == PieceType::BISHOP) bishop_moves(piece, return_v);
-        else if (piece.piece_t == PieceType::ROOK) rook_moves(piece, return_v);
-        else if (piece.piece_t == PieceType::QUEEN) queen_moves(piece, return_v);
-        else if (piece.piece_t == PieceType::KING) king_moves(piece, return_v);
+        if (piece->get_piece() == PieceType::PAWN) pawn_move(*piece, return_v);
+        if (piece->get_piece() == PieceType::KNIGHT) knight_moves(*piece, return_v);
+        if (piece->get_piece() == PieceType::BISHOP) bishop_moves(*piece, return_v);
+        else if (piece->get_piece() == PieceType::ROOK) rook_moves(*piece, return_v);
+        else if (piece->get_piece() == PieceType::QUEEN) queen_moves(*piece, return_v);
+        else if (piece->get_piece() == PieceType::KING) king_moves(*piece, return_v);
     }
     return return_v;
 }
@@ -158,12 +171,12 @@ void Board::print_pieces()
 {
     for (auto p : white)
     {
-        std::cout << (size_t) p.piece_t << ", " << (int) p.square << std::endl;
+        std::cout << (size_t) p->piece_t << ", " << (int) p->square << std::endl;
     }
 
     for (auto p : black)
     {
-        std::cout << (size_t) p.piece_t << ", " << (int) p.square << std::endl;
+        std::cout << (size_t) p->piece_t << ", " << (int) p->square << std::endl;
     }
 }
 
@@ -180,10 +193,10 @@ void Board::rook_moves(Piece piece, std::vector<Move>& moves)
         for (size_t i = 1; i < num_sq_to_edge[piece.square][dir]; i++)
         {
             char t_square = piece.square + sliding_offsets[dir] * i; 
-            Color t_color = board[t_square].color;
-            if (t_color == piece.color) break;
+            Color t_color = board[t_square]->get_color();
+            if (t_color == piece.get_color()) break;
             moves.push_back({piece.square, t_square});
-            if (t_color == opposite_color[piece.color]) break;
+            if (t_color == opposite_color[piece.get_color()]) break;
         }
     }
 }
@@ -196,10 +209,10 @@ void Board::bishop_moves(Piece piece, std::vector<Move>& moves)
         for (size_t i = 1; i < num_sq_to_edge[piece.square][dir + 4]; i++)
         {
             char t_square = piece.square + sliding_offsets[dir + 4] * i; 
-            Color t_color = board[t_square].color;
-            if (t_color == piece.color) break;
+            Color t_color = board[t_square]->get_color();
+            if (t_color == piece.get_color()) break;
             moves.push_back({piece.square, t_square});
-            if (t_color == opposite_color[piece.color]) break;
+            if (t_color == opposite_color[piece.get_color()]) break;
         }
     }
 }
@@ -214,8 +227,8 @@ void Board::queen_moves(Piece piece, std::vector<Move>& moves)
 // Calculate all valid knight moves from a table
 void Board::knight_moves(Piece piece, std::vector<Move>& moves)
 {
-    char kx = piece % 8;
-    char ky = piece / 8;
+    char kx = piece.square % 8;
+    char ky = piece.square / 8;
 
     for (auto [x, y] : knight_offsets)
     {
@@ -223,7 +236,7 @@ void Board::knight_moves(Piece piece, std::vector<Move>& moves)
         char ty = y + ky;
         if (tx > 7 || tx < 0 || ty > 7 || ty < 0) continue;
         char new_sq = tx + ty * 8;
-        if (board[new_sq].color == piece.color) continue;
+        if (board[new_sq]->get_color() == piece.get_color) continue;
         moves.push_back({piece.square, new_sq});
     }
 }
@@ -231,12 +244,49 @@ void Board::knight_moves(Piece piece, std::vector<Move>& moves)
 // Calculate all valid king moves
 void Board::king_moves(Piece piece, std::vector<Move>& moves)
 {
+    // Loop through all directions
     for (size_t dir = 0; dir < 8; dir++)
     {
+        // Calculate target square
         char t_square = piece.square + sliding_offsets[dir]; 
-        Color t_color = board[t_square].color;
-        if (t_color == piece.color) break;
+        // Calculate target square color (none, for an empty piece, or black/white)
+        Color t_color = board[t_square]->get_color();
+        // Check if it is piece of the same color, break if it is
+        if (t_color == piece.get_color()) break;
+        // Add the move
         moves.push_back({piece.square, t_square});
-        if (t_color == opposite_color[piece.color]) break;
+        // Check if it is a different color piece, break if it is
+        if (t_color == opposite_color[piece.get_color()]) break;
+    }
+}
+
+// Calculate all valid pawn moves
+void Board::pawn_moves(Piece piece, std::vector<Move>& moves)
+{
+    // Calculate rank and file
+    char px = piece.square % 8;
+    char py = piece.square / 8;
+
+    // Calculate if a piece can move forward 1
+    char pawn_oy = pawn_offset[(bool)piece.get_color()][0];
+    if (board[piece.square + pawn_oy]->get_piece() == PieceType::EMPTY)
+    {
+        moves.push_back({piece.square, piece.square + pawn_oy});
+        // Calculate if a piece can move forward 2 (only on starting square)
+        if (board[piece.square + pawn_oy * 2]->get_piece() == PieceType::EMPTY && py == start_y[piece.get_color()]) moves.push_back({piece.square, piece.square + pawn_oy * 2});
+    }
+
+    // Calculate a capture to the right (if its not on the rightmost file)
+    if (px != 7)
+    {
+        char target_sq = piece.square + pawn_offset[(bool)piece.get_color()][1];
+        if (opposite_color[board[target_sq]->get_color()] == piece.get_color()) moves.push_back({piece.square, target_sq});
+    }
+
+    // Calculate a capture to the left (if its not on the leftmost file)
+    if (px != 0)
+    {
+        char target_sq = piece.square + pawn_offset[(bool)piece.get_color()][2];
+        if (opposite_color[board[target_sq]->get_color()] == piece.get_color()) moves.push_back({piece.square, target_sq});
     }
 }

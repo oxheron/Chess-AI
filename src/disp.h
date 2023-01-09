@@ -2,8 +2,6 @@
 
 #include "game.h"
 
-// SDL
-#include <SDL2/SDL.h>
 // std
 
 struct Disp
