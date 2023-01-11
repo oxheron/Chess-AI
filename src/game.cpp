@@ -157,12 +157,12 @@ std::vector<Move> Board::generate_moves(Color color)
     // Go through every piece of the color and generate moves for it
     for (auto piece : (color == Color::WHITE ? white : black))
     {
-        if (piece->get_piece() == PieceType::PAWN) pawn_move(*piece, return_v);
-        if (piece->get_piece() == PieceType::KNIGHT) knight_moves(*piece, return_v);
-        if (piece->get_piece() == PieceType::BISHOP) bishop_moves(*piece, return_v);
-        else if (piece->get_piece() == PieceType::ROOK) rook_moves(*piece, return_v);
-        else if (piece->get_piece() == PieceType::QUEEN) queen_moves(*piece, return_v);
-        else if (piece->get_piece() == PieceType::KING) king_moves(*piece, return_v);
+        if (piece->piece_t == PieceType::PAWN) pawn_move(*piece, return_v);
+        if (piece->piece_t == PieceType::KNIGHT) knight_moves(*piece, return_v);
+        if (piece->piece_t == PieceType::BISHOP) bishop_moves(*piece, return_v);
+        else if (piece->piece_t == PieceType::ROOK) rook_moves(*piece, return_v);
+        else if (piece->piece_t == PieceType::QUEEN) queen_moves(*piece, return_v);
+        else if (piece->piece_t == PieceType::KING) king_moves(*piece, return_v);
     }
     return return_v;
 }
@@ -189,6 +189,50 @@ void Board::move(Move move)
     // Check if king is in check (from attack squares)
     // Update game history
 
+    // Use shared_ptr.swap for normal moves (and change square)
+    // For captures reset the piece (and remove it from the list)
+    // Then do the normal swap
+
+    // For generate moves, run the move (for the opposite color, after updating the postition)
+    // Go through each move, and if its square isn't in the map already add it
+
+    // Check if the kings square is in one of those squares (for is check)
+
+    // For piece pinning, figure out if each opposite piece that can pin is on line with the king
+    // Once the ray is found, look for a piece blocking the ray to the king (or not, if it is a check)
+    // If there is more than 1 piece blocking, disregard it
+    // If there is only one piece, add the square to the is_pinned map for its color, and the direction (based on the ray)
+
+    // Update the history with last moves history
+    // If a pawn move square change abs value is 16, activate en passent for that file
+    // If the move isn't a pawn move or a capture, add a tick to the 50 move rule
+    // Else reset it
+    // If it is a capture, add the piece to the capture map
+    // If the move is a rook move or a king move, and castling is enabled for that side (or at all for the king), disable the flags, and add it to the flags
+
+    update_flags();
+
+    Piece start_p = board[move.start_pos];
+    if (start_p-> != opposite_color[(Color) turn]) return;
+
+    if (board[move.end_pos]->color == opposite_color[start_p.color]) 
+    {
+        capture_type = board[move.end_pos]->piece_t;
+        for (auto p : (((bool) board[move.end_pos].color) ? white : black))
+        {
+            if (p->square == move.end_pos);
+            (((bool) board[move.end_pos].color) ? white : black).remove(p);
+        }
+        board[move.end_pos]->color = Color::NONE;
+        board[move.end_pos]->piece_t = PieceType::EMPTY;
+        board[move.end_pos]->square = move.start_pos;
+    }
+
+    board[move.start_pos].swap(board[move.end_pos]);
+
+
+    // Wrap up stuff
+    turn = !turn;
     
 }
 
@@ -206,10 +250,10 @@ void Board::rook_moves(Piece piece, std::vector<Move>& moves)
         for (size_t i = 1; i < num_sq_to_edge[piece.square][dir]; i++)
         {
             char t_square = piece.square + sliding_offsets[dir] * i; 
-            Color t_color = board[t_square]->get_color();
-            if (t_color == piece.get_color()) break;
+            Color t_color = board[t_square]->color;
+            if (t_color == piece.color) break;
             moves.push_back({piece.square, t_square});
-            if (t_color == opposite_color[piece.get_color()]) break;
+            if (t_color == opposite_color[piece.color]) break;
         }
     }
 }
@@ -222,10 +266,10 @@ void Board::bishop_moves(Piece piece, std::vector<Move>& moves)
         for (size_t i = 1; i < num_sq_to_edge[piece.square][dir + 4]; i++)
         {
             char t_square = piece.square + sliding_offsets[dir + 4] * i; 
-            Color t_color = board[t_square]->get_color();
-            if (t_color == piece.get_color()) break;
+            Color t_color = board[t_square]->color;
+            if (t_color == piece.color) break;
             moves.push_back({piece.square, t_square});
-            if (t_color == opposite_color[piece.get_color()]) break;
+            if (t_color == opposite_color[piece.color]) break;
         }
     }
 }
@@ -249,7 +293,7 @@ void Board::knight_moves(Piece piece, std::vector<Move>& moves)
         char ty = y + ky;
         if (tx > 7 || tx < 0 || ty > 7 || ty < 0) continue;
         char new_sq = tx + ty * 8;
-        if (board[new_sq]->get_color() == piece.get_color) continue;
+        if (board[new_sq]->color == piece.get_color) continue;
         moves.push_back({piece.square, new_sq});
     }
 }
@@ -263,13 +307,13 @@ void Board::king_moves(Piece piece, std::vector<Move>& moves)
         // Calculate target square
         char t_square = piece.square + sliding_offsets[dir]; 
         // Calculate target square color (none, for an empty piece, or black/white)
-        Color t_color = board[t_square]->get_color();
+        Color t_color = board[t_square]->color;
         // Check if it is piece of the same color, break if it is
-        if (t_color == piece.get_color()) break;
+        if (t_color == piece.color) break;
         // Add the move
         moves.push_back({piece.square, t_square});
         // Check if it is a different color piece, break if it is
-        if (t_color == opposite_color[piece.get_color()]) break;
+        if (t_color == opposite_color[piece.color]) break;
     }
 }
 
@@ -281,25 +325,25 @@ void Board::pawn_moves(Piece piece, std::vector<Move>& moves)
     char py = piece.square / 8;
 
     // Calculate if a piece can move forward 1
-    char pawn_oy = pawn_offset[(bool)piece.get_color()][0];
-    if (board[piece.square + pawn_oy]->get_piece() == PieceType::EMPTY)
+    char pawn_oy = pawn_offset[(bool)piece.color][0];
+    if (board[piece.square + pawn_oy]->piece_t == PieceType::EMPTY)
     {
         moves.push_back({piece.square, piece.square + pawn_oy});
         // Calculate if a piece can move forward 2 (only on starting square)
-        if (board[piece.square + pawn_oy * 2]->get_piece() == PieceType::EMPTY && py == start_y[piece.get_color()]) moves.push_back({piece.square, piece.square + pawn_oy * 2});
+        if (board[piece.square + pawn_oy * 2]->piece_t == PieceType::EMPTY && py == start_y[piece.color]) moves.push_back({piece.square, piece.square + pawn_oy * 2});
     }
 
     // Calculate a capture to the right (if its not on the rightmost file)
     if (px != 7)
     {
-        char target_sq = piece.square + pawn_offset[(bool)piece.get_color()][1];
-        if (opposite_color[board[target_sq]->get_color()] == piece.get_color()) moves.push_back({piece.square, target_sq});
+        char target_sq = piece.square + pawn_offset[(bool)piece.color][1];
+        if (opposite_color[board[target_sq]->color] == piece.color) moves.push_back({piece.square, target_sq});
     }
 
     // Calculate a capture to the left (if its not on the leftmost file)
     if (px != 0)
     {
-        char target_sq = piece.square + pawn_offset[(bool)piece.get_color()][2];
-        if (opposite_color[board[target_sq]->get_color()] == piece.get_color()) moves.push_back({piece.square, target_sq});
+        char target_sq = piece.square + pawn_offset[(bool)piece.color][2];
+        if (opposite_color[board[target_sq]->color] == piece.color) moves.push_back({piece.square, target_sq});
     }
 }

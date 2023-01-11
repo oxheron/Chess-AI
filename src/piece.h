@@ -15,17 +15,12 @@ struct Piece
     PieceType piece_t;
     Color color;
     char square;
-    bool alive;
 
     Piece()
-        : piece_t(PieceType::EMPTY), color(Color::NONE), square(0), alive(true)
+        : piece_t(PieceType::EMPTY), color(Color::NONE), square(0)
     {}
     
     Piece(PieceType piece_t, Color color, char square)
-        : piece_t(piece_t), color(color), square(square), alive(false)
+        : piece_t(piece_t), color(color), square(square)
     {}
-
-    PieceType get_piece() { return alive ? piece_t : PieceType::EMPTY; }
-    Color get_color() { return alive ? color : Color::NONE; }
-
 };

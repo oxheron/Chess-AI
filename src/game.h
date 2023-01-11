@@ -28,11 +28,14 @@ private:
     std::list<std::shared_ptr<Piece>> white;
     std::list<std::shared_ptr<Piece>> black;
 
-    // Stuff about castling
-    bool white_KC = false;
-    bool white_QC = false;
-    bool black_KC = false;
-    bool black_QC = false;
+    // Current game flags
+    bool white_KC = true;
+    bool white_QC = true;
+    bool black_KC = true;
+    bool black_QC = true;
+    char capture_type;
+    char ep_file;
+    char fifty_mover;
 
     // Info about the games progress
     bool turn;
