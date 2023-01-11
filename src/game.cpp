@@ -180,7 +180,20 @@ void Board::print_pieces()
     }
 }
 
-void Board::move()
+// Does a move on the board (doesn't have to be legal, but if the move isn't legal it is undefined behavior)
+void Board::move(Move move)
+{
+    // Do the move
+    // Figure out what squares are attacked by opponents (just generate moves, find every possible square)
+    // Figure out how pieces are pinned (if they are)
+    // Check if king is in check (from attack squares)
+    // Update game history
+
+    
+}
+
+// Undoes a move (has to be saved)
+void Board::unmove(Move move)
 {
 
 }

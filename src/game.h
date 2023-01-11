@@ -8,6 +8,7 @@
 #include <list> 
 #include <vector>
 #include <memory>
+#include <stack>
 
 // Holds data for a move, returned in the move piece function
 struct Move
@@ -36,6 +37,34 @@ private:
     // Info about the games progress
     bool turn;
     size_t moves;
+
+    // Info about what squares are attacked (for both colors)
+    std::array<bool, 64> white_attacked;
+    std::array<bool, 64> black_attacked;
+    
+    // Is the opposing king in check? 
+    bool in_check;
+
+    // What pieces are pinned (square and 1 of the 8 directions, for both colors)
+    std::unordered_map<char, char> white_pinned_squares;
+    std::unordered_map<char, char> black_pinned_squares;
+
+    // Info about past captures
+    // Bits 0-3 are castle state
+    // Bits 4-6 are EP file bits
+    // Bits 7-9 are capture bits, if there was a capture, the piece type is in 7-9 
+    // Also stores info about EP(see below)
+    // 000 = EMPTY (no EP)
+    // 001 = KING (never used)
+    // 010 = QUEEN
+    // 011 = ROOK
+    // 100 = BISHOP
+    // 101 = KNIGHT
+    // 110 = PAWN
+    // 111 = EMPTY (ep)
+    // You cant have a capture and a move that enables EP at the same time, so if it isn't 111 bits 4-6 are disregarderd
+    // Bits 10-15 are 50 move rule
+    std::stack<short> game_history;
 
 public:
     // Initializes the board with empty squares
