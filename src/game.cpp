@@ -25,7 +25,8 @@ std::unordered_map<Color, Color> opposite_color({
 // Calculate the number of squares to the edge for the starting square and each direction
 std::array<std::array<char, 8>, 64> num_sq_to_edge;
 
-// List of sliding piece offsets based on direction
+// List of sliding piece offsets based on direction 
+// Left, right, north, south, nw, sw, ne, se
 std::array<char, 8> sliding_offsets({
     -1, 1, 8, -8, 7, -9, 9, -7
 });
@@ -208,23 +209,6 @@ void Board::undo_history()
 // Does a move on the board (doesn't have to be legal, but if the move isn't legal it is undefined behavior)
 void Board::move(Move move)
 {
-    // Do the move
-    // Figure out what squares are attacked by opponents (just generate moves, find every possible square)
-    // Figure out how pieces are pinned (if they are)
-    // Check if king is in check (from attack squares)
-    // Update game history
-
-    // DONE
-    // Use shared_ptr.swap for normal moves (and change square)
-    // For captures reset the piece (and remove it from the list)
-    // Then do the normal swap
-
-
-    // For generate moves, run the move (for the opposite color, after updating the postition)
-    // Go through each move, and if its square isn't in the map already add it DONE
-
-    // Check if the kings square is in one of those squares (for is check) DONE
-
     // For piece pinning, figure out if each opposite piece that can pin is on line with the king
     // Once the ray is found, look for a piece blocking the ray to the king (or not, if it is a check)
     // If there is more than 1 piece blocking, disregard it
@@ -277,11 +261,32 @@ void Board::move(Move move)
     in_check = 0;
     for (auto p : (bool) start_p.color ? black : white)
     {
-        if (p->piece_t == PieceType::KING && (*output)[p->square]) in_check = 1;
-    }
+        if (p->piece_t == PieceType::KING)
+        {
+            if ((*output)[p->square]) in_check = 1;
 
-    // Generate pinned pieces
-    
+            // Calculate pins: go through each sliding piece
+            for (auto p : (bool startp.color ? white : black))
+            {
+                // Diagonal pins
+                if (p->piece_t == PieceType::BISHOP || p->piece_t == PieceType::QUEEN)
+                {
+                    // Go through nsw and nse (by doing a abs ksq - bsq % westoffset == 0 (or eastoffset))
+                    // Figure which direction it is by positive ksq - bsq is north
+                    // Loop through that ray until you hit the king, or 2 pieces (save a piece, and if you hit a second one break)
+                    // Continue the loop when done
+                }
+                // Straight pins
+                if (p->piece_t == PieceType::ROOK || p->piece_t == PieceType::QUEEN)
+                {
+                    // Go through x and y (by doing a abs ksq - bsq % 1 == 0 or 8 instead of 1)
+                    // Figure which direction it is by positive ksq - bsq is up or right, negative is down or left
+                    // Loop through that ray until you hit the king, or 2 pieces (save a piece, and if you hit a second one break)
+                    // Continue the loop when done
+                }
+            }
+        } 
+    }    
 
     // Wrap up stuff
     ep_file = 0
