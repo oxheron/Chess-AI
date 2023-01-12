@@ -180,6 +180,31 @@ void Board::print_pieces()
     }
 }
 
+void Board::update_history()
+{
+    short history = 0;
+    history |= white_KC;
+    history |= (short) white_QC << 1;
+    history |= (short) black_KC << 2;
+    history |= (short) black_QC << 3;
+    history |= (0b00000111 & ep_file) << 4;
+    history |= (0b00000111 & capture_type) << 7;
+    history |= (0b00111111 & fifty_mover) << 10;
+    game_history.push(history);
+}
+
+void Board::undo_history()
+{
+    short history = game_history.pop();
+    white_KC = history & (short) 0b00000001;
+    white_QC = history & (short) 0b00000010;
+    black_KC = history & (short) 0b00000100;
+    black_QC = history & (short) 0b00001000;
+    ep_file = (history & (short) 0b01110000) >> 4;
+    capture_type = (history & (short) 0b01110000000) >> 7;
+    fifty_mover = (history & (short) 0b1111110000000000) >> 10;
+}
+
 // Does a move on the board (doesn't have to be legal, but if the move isn't legal it is undefined behavior)
 void Board::move(Move move)
 {
@@ -189,14 +214,16 @@ void Board::move(Move move)
     // Check if king is in check (from attack squares)
     // Update game history
 
+    // DONE
     // Use shared_ptr.swap for normal moves (and change square)
     // For captures reset the piece (and remove it from the list)
     // Then do the normal swap
 
-    // For generate moves, run the move (for the opposite color, after updating the postition)
-    // Go through each move, and if its square isn't in the map already add it
 
-    // Check if the kings square is in one of those squares (for is check)
+    // For generate moves, run the move (for the opposite color, after updating the postition)
+    // Go through each move, and if its square isn't in the map already add it DONE
+
+    // Check if the kings square is in one of those squares (for is check) DONE
 
     // For piece pinning, figure out if each opposite piece that can pin is on line with the king
     // Once the ray is found, look for a piece blocking the ray to the king (or not, if it is a check)
@@ -210,8 +237,11 @@ void Board::move(Move move)
     // If it is a capture, add the piece to the capture map
     // If the move is a rook move or a king move, and castling is enabled for that side (or at all for the king), disable the flags, and add it to the flags
 
-    update_flags();
+    update_history();
 
+    fifty_mover++;
+
+    // Do move on board
     Piece start_p = board[move.start_pos];
     if (start_p-> != opposite_color[(Color) turn]) return;
 
@@ -225,15 +255,43 @@ void Board::move(Move move)
         }
         board[move.end_pos]->color = Color::NONE;
         board[move.end_pos]->piece_t = PieceType::EMPTY;
-        board[move.end_pos]->square = move.start_pos;
+
+        fifty_mover = 0;
     }
 
+    board[move.end_pos]->square = move.start_pos;
+    board[move.start_pos]->square = move.end_pos;
     board[move.start_pos].swap(board[move.end_pos]);
 
+    // Generate attack squares
+    std::vector<Move> moves = generate_moves(startp.color);
+
+    auto* output = (bool) start_p.color ? &black_attacked : &white_attacked;
+    
+    for (auto m : moves)
+    {
+        if (!std::find(squares.begin(), sqaures.end(), m.end_pos)) (*output)[m.end_pos] = 1;
+    }
+    
+    // Check if the opponents king is in check
+    in_check = 0;
+    for (auto p : (bool) start_p.color ? black : white)
+    {
+        if (p->piece_t == PieceType::KING && (*output)[p->square]) in_check = 1;
+    }
+
+    // Generate pinned pieces
+    
 
     // Wrap up stuff
+    ep_file = 0
     turn = !turn;
-    
+    if (board[move.end_pos]->piece_t == PieceType::PAWN)
+    {
+        fifty_mover = 0;
+        if (abs(move.start_pos - move.end_pos) == 16) ep_file = move.start_pos % 8;
+    } 
+    if (turn) moves++;
 }
 
 // Undoes a move (has to be saved)

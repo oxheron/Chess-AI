@@ -53,7 +53,7 @@ private:
     std::unordered_map<char, char> black_pinned_squares;
 
     // Info about past captures
-    // Bits 0-3 are castle state
+    // Bits 0-3 are castle state 0 is white_KC, 3 is black_QC
     // Bits 4-6 are EP file bits
     // Bits 7-9 are capture bits, if there was a capture, the piece type is in 7-9 
     // Also stores info about EP(see below)
@@ -83,10 +83,10 @@ public:
     std::vector<Move> generate_moves(Color color);
 
     // A move
-    void move();
+    void move(Move move);
 
     // Do a move backwards
-    void unmove();
+    void unmove(Move move);
 
 private:
     // Generate all legal rook moves from a piece, puts result in moves
@@ -96,4 +96,9 @@ private:
     void knight_moves(Piece piece, std::vector<Move>& moves);
     void king_moves(Piece piece, std::vector<Move>& moves);
     void pawn_moves(Piece piece, std::vector<Move>& moves);
+
+    // Update the game_history stack
+    void update_history();
+    // Undo the game history stack (for unmoving)
+    void undo_history();
 };
