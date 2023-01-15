@@ -33,12 +33,12 @@ private:
     bool white_QC = true;
     bool black_KC = true;
     bool black_QC = true;
-    char capture_type;
-    char ep_file;
-    char fifty_mover;
+    char capture_type = 0;
+    char ep_file = 0;
+    char fifty_mover = 0;
 
     // Info about the games progress
-    bool turn;
+    bool turn = 1;
     size_t moves;
 
     // Info about what squares are attacked (for both colors)
@@ -49,8 +49,8 @@ private:
     bool in_check;
 
     // What pieces are pinned (square and 1 of the 8 directions, for both colors)
-    std::unordered_map<char, char> white_pinned_squares;
-    std::unordered_map<char, char> black_pinned_squares;
+    std::array<char, 64> white_pinned_squares;
+    std::array<char, 64> black_pinned_squares;
 
     // Info about past captures
     // Bits 0-3 are castle state 0 is white_KC, 3 is black_QC
@@ -86,7 +86,10 @@ public:
     void move(Move move);
 
     // Do a move backwards
-    void unmove(Move move);
+    void unmove(Move move, bool regen);
+
+    char get_ep() { return ep_file; }
+
 
 private:
     // Generate all legal rook moves from a piece, puts result in moves

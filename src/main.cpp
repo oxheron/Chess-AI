@@ -7,11 +7,16 @@ int main(void)
 {
     Disp disp;
     Board board;
-    board.load_fen("8/8/8/4R3/4B3/8/8/8 w KQkq - 0 1");
+    board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     auto moves = board.generate_moves(Color::WHITE);
 
-    for (auto move : moves)
-    {
-        std::cout << (int) move.end_pos << ", ";
-    }
+    // for (auto move : moves)
+    // {
+    //     std::cout << (int) move.end_pos << ", ";
+    // }
+
+    board.print_pieces();
+    board.move({11, 27});
+    std::cout << "after move" << std::endl;
+    board.print_pieces();
 }
