@@ -42,13 +42,13 @@ private:
     size_t moves;
 
     // Info about what squares are attacked (for both colors)
-    std::array<bool, 64> white_attacked;
-    std::array<bool, 64> black_attacked;
-    
+    std::array<std::array<bool, 64>, 2> attacked;
+
     // Is the opposing king in check? 
     bool in_check;
 
     // What pieces are pinned (square and 1 of the 8 directions, for both colors)
+    std::array<std::array<char, 64>, 2> pinned_squares;
     std::array<char, 64> white_pinned_squares;
     std::array<char, 64> black_pinned_squares;
 
