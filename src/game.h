@@ -21,17 +21,19 @@ struct Move
 class Board
 {
 private:
+public:
     // Board for checking moves
     std::array<std::shared_ptr<Piece>, 64> board;
+private:
 
     // Lists of pieces (the pointers are linked to the board)
     std::list<std::shared_ptr<Piece>> white;
     std::list<std::shared_ptr<Piece>> black;
 
     // Current game flags
-    bool white_KC = true;
-    bool white_QC = true;
-    bool black_KC = true;
+    bool white_KC = false;
+    bool white_QC = false;
+    bool black_KC = false;
     bool black_QC = true;
     char capture_type = 0;
     char ep_file = 0;
@@ -49,8 +51,6 @@ private:
 
     // What pieces are pinned (square and 1 of the 8 directions, for both colors)
     std::array<std::array<char, 64>, 2> pinned_squares;
-    std::array<char, 64> white_pinned_squares;
-    std::array<char, 64> black_pinned_squares;
 
     // Info about past captures
     // Bits 0-3 are castle state 0 is white_KC, 3 is black_QC
