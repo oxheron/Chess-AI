@@ -48,6 +48,8 @@ private:
 
     // Is the opposing king in check? 
     bool in_check;
+    // Squares to block or take check
+    std::vector<char> stop_check;
 
     // What pieces are pinned (square and 1 of the 8 directions, for both colors)
     std::array<std::array<char, 64>, 2> pinned_squares;
@@ -80,7 +82,7 @@ public:
     void print_pieces();
 
     // The most important function, generates all of the possible moves for the ai to choose from
-    std::vector<Move> generate_moves(Color color);
+    std::vector<Move> generate_moves(Color color, bool check);
 
     // A move
     void move(Move move);
@@ -88,20 +90,22 @@ public:
     // Do a move backwards
     void unmove(Move move, bool regen);
 
-    char get_ep() { return ep_file; }
-
-
 private:
     // Generate all legal rook moves from a piece, puts result in moves
     void rook_moves(Piece piece, std::vector<Move>& moves);
     void bishop_moves(Piece piece, std::vector<Move>& moves);
     void queen_moves(Piece piece, std::vector<Move>& moves);
     void knight_moves(Piece piece, std::vector<Move>& moves);
-    void king_moves(Piece piece, std::vector<Move>& moves);
+    void king_moves(Piece piece, std::vector<Move>& moves, bool check);
     void pawn_moves(Piece piece, std::vector<Move>& moves);
 
     // Update the game_history stack
     void update_history();
     // Undo the game history stack (for unmoving)
     void undo_history();
+
+    // Calculate pins
+    void calc_pins(Color color);
+    // Calculate attacks
+    bool calc_attacks(Color color, char square);
 };
