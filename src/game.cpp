@@ -104,7 +104,7 @@ void Board::load_fen(std::string fen)
             fen.erase(slash_split);
         }
 
-        for (char j = 7, fen_idx = 0; j >= 0; j--, fen_idx++)
+        for (char j = 0, fen_idx = 0; j < 8; j++, fen_idx++)
         {
             if (ctop_t.contains(std::tolower(fen[fen_idx]))) 
             {
@@ -127,7 +127,7 @@ void Board::load_fen(std::string fen)
             }
             else
             {
-                j -= fen[fen_idx] - 49;
+                j += fen[fen_idx] - 49;
             }
         }
         fen = next;
@@ -175,7 +175,6 @@ void Board::load_fen(std::string fen)
     // Squares adjacent to king
     for (size_t i = 0; i < 8; i++)
     {
-        std::cout << i << std::endl;
         attacked[this->turn][k_sq + sliding_offsets[i]] = calc_attacks((Color) !this->turn, k_sq + sliding_offsets[i]);
     }
     
@@ -333,9 +332,11 @@ void Board::load_fen(std::string fen)
         
     calc_pins(Color::WHITE);
     calc_pins(Color::BLACK);
+
+    std::cout << "fengen" << std::endl;
 }
 
-std::vector<Move> Board::generate_moves(Color color, bool check)
+std::vector<Move> Board::generate_moves(Color color)
 {
     std::vector<Move> return_v;
     // Go through every piece of the color and generate moves for it
@@ -380,7 +381,7 @@ std::vector<Move> Board::generate_moves(Color color, bool check)
         {
             size_t s = return_v.size();
             std::cout << "king" << std::endl;
-            king_moves(*piece, return_v, check);
+            king_moves(*piece, return_v);
             std::cout << return_v.size() - s << std::endl;
         }
     }
@@ -468,6 +469,7 @@ void Board::calc_pins(Color color)
                 // Diagonal pins
                 if (p2->piece_t == PieceType::BISHOP)
                 {
+                    std::cout << "bishop" << std::endl;
                     // Go through nsw and nse (by doing a abs ksq - bsq % westoffset == 0 (or eastoffset))
                     // Figure which direction it is by positive ksq - bsq is north
                     // Loop through that ray until you hit the king, or 2 pieces (save a piece, and if you hit a second one break)
@@ -477,13 +479,15 @@ void Board::calc_pins(Color color)
                     char offset;
                     if (p_offset % 7 == 0) 
                     {
+                        std::cout << "here" << std::endl;
                         if (p_offset > 0) offset = 7;
                         else offset = -7;
                     }
                     else if (p_offset % 9 == 0) 
                     {
+                        std::cout << "p9" << std::endl;
                         if (p_offset > 0) offset = 9;
-                        else offset = 9;
+                        else offset = -9;
                     }
                     else continue;
 
@@ -492,6 +496,7 @@ void Board::calc_pins(Color color)
                     {
                         if (board[p2->square + i * offset]->piece_t != PieceType::EMPTY) 
                         {
+                            std::cout << "hre" << std::endl;
                             if (board[p2->square + i * offset]->piece_t == PieceType::KING) break;
                             if (pinned_sq != -1)
                             {
@@ -510,6 +515,7 @@ void Board::calc_pins(Color color)
                 // Straight pins
                 if (p2->piece_t == PieceType::ROOK)
                 {
+                    std::cout << "rook" << std::endl;
                     // Go through x and y (by doing a abs ksq - bsq % 1 == 0 or 8 instead of 1)
                     // Figure which direction it is by positive ksq - bsq is up or right, negative is down or left
                     // Loop through that ray until you hit the king, or 2 pieces (save a piece, and if you hit a second one break)
@@ -551,6 +557,7 @@ void Board::calc_pins(Color color)
                 }
                 if (p2->piece_t == PieceType::QUEEN)
                 {
+                    std::cout << "queen" << std::endl;
                     char p_offset = p->square - p2->square;
                     char offset;
                     if (p_offset % 7 == 0) 
@@ -575,6 +582,8 @@ void Board::calc_pins(Color color)
                     }
                     else continue;
 
+                    std::cout << "after cont  " << (int) p2->square << std::endl;
+
                     char pinned_sq = -1;
                     for (size_t i = 1; ; i++)
                     {
@@ -598,12 +607,13 @@ void Board::calc_pins(Color color)
             }
         } 
     }    
+
+    std::cout << "here" << std::endl;
 }
 
 // Calculate if a square is attacked by the color
 bool Board::calc_attacks(Color color, char square)
 {
-    std::cout << "call" << std::endl;
     for (auto piece : (color == Color::WHITE ? white : black))
     {
         if (piece->piece_t == PieceType::PAWN) 
@@ -650,10 +660,6 @@ bool Board::calc_attacks(Color color, char square)
             bool np_empty = 1;
             for (size_t i = 1; ; i++)
             {
-                std::cout << "square" << (int) square << std::endl;
-                std::cout << piece->square + i * offset << std::endl;
-                std::cout << "i + 1" << piece->square + (i + 1) * offset << std::endl;
-                std::cout << "boardpiece" << (int) board[piece->square + (i + 1) * offset]->square << std::endl;
                 if (board[piece->square + i * offset]->piece_t != PieceType::EMPTY && board[piece->square + i * offset]->piece_t != PieceType::KING)
                 {
                     np_empty = 0;
@@ -680,18 +686,20 @@ bool Board::calc_attacks(Color color, char square)
             }
             else continue;
 
+            if (p_offset == 0) continue;
+
             bool np_empty = 1;
             for (size_t i = 1; ; i++)
             {
                 if (board[piece->square + i * offset]->piece_t != PieceType::EMPTY && board[piece->square + i * offset]->piece_t != PieceType::KING)
                 {
-                        np_empty = 0;
-                        break;
+                    np_empty = 0;
+                    break;
                 }
-                if (board[piece->square + (i + 1) * offset]->square == square) break;
+                if (piece->square + i * offset == square) break;
             }
 
-            if (np_empty) return 1;    
+            if (np_empty) return 1;      
         }
         else if (piece->piece_t == PieceType::QUEEN)
         {
@@ -719,18 +727,20 @@ bool Board::calc_attacks(Color color, char square)
             }
             else continue;
 
+            if (p_offset == 0) continue;
+
             bool np_empty = 1;
             for (size_t i = 1; ; i++)
             {
                 if (board[piece->square + i * offset]->piece_t != PieceType::EMPTY && board[piece->square + i * offset]->piece_t != PieceType::KING)
                 {
-                        np_empty = 0;
-                        break;
+                    np_empty = 0;
+                    break;
                 }
-                if (board[piece->square + (i + 1) * offset]->square == square) break;
+                if (piece->square + i * offset == square) break;
             }
-            
-            if (np_empty) return 1;    
+
+            if (np_empty) return 1;  
         }
         else if (piece->piece_t == PieceType::KING) 
         {
@@ -855,7 +865,6 @@ void Board::move(Move move)
     for (size_t i = 0; i < 8; i++)
     {
         attacked[!(bool) start_p.color][k_sq + sliding_offsets[i]] = calc_attacks(start_p.color, k_sq + sliding_offsets[i]);
-        std::cout << k_sq + sliding_offsets[i] << ", " << attacked[!(bool) start_p.color][k_sq + sliding_offsets[i]] << std::endl;
     }
     
     in_check = calc_attacks(start_p.color, k_sq);
@@ -1061,7 +1070,7 @@ void Board::unmove(Move move, bool regen)
         // Generate attack squares
         pinned_squares[0].fill(0);
         pinned_squares[1].fill(0);
-        std::vector<Move> moves = generate_moves(start_p.color, false);
+        std::vector<Move> moves = generate_moves(start_p.color);
         attacked[!(bool)start_p.color].fill(0);
     
         for (auto m : moves)
@@ -1172,19 +1181,54 @@ void Board::knight_moves(Piece piece, std::vector<Move>& moves)
 }
 
 // Calculate all valid king moves
-void Board::king_moves(Piece piece, std::vector<Move>& moves, bool check)
+void Board::king_moves(Piece piece, std::vector<Move>& moves)
 {
+    std::vector<char> king_offsets(sliding_offsets.begin(), sliding_offsets.end());
+    if (piece.square % 8 == 0) 
+    {
+        std::remove(king_offsets.begin(), king_offsets.end(), -9);
+        std::remove(king_offsets.begin(), king_offsets.end(), -1);
+        std::remove(king_offsets.begin(), king_offsets.end(),  7);
+    }
+
+    if (piece.square % 8 == 7)
+    {
+        std::remove(king_offsets.begin(), king_offsets.end(), -7);
+        std::remove(king_offsets.begin(), king_offsets.end(),  1);
+        std::remove(king_offsets.begin(), king_offsets.end(),  9);
+    }
+
+    if (piece.square / 8 == 0)
+    {
+        std::remove(king_offsets.begin(), king_offsets.end(),  -9);
+        std::remove(king_offsets.begin(), king_offsets.end(),  -8);
+        std::remove(king_offsets.begin(), king_offsets.end(),  -7);
+    }
+
+    if (piece.square / 8 == 7)
+    {
+        std::remove(king_offsets.begin(), king_offsets.end(),  7);
+        std::remove(king_offsets.begin(), king_offsets.end(),  8);
+        std::remove(king_offsets.begin(), king_offsets.end(),  9);
+    }
+
+    std::cout << "sq" << (int) piece.square << std::endl;
+
     // Loop through all directions
-    for (size_t dir = 0; dir < 8; dir++)
+    for (size_t i = 0; i < king_offsets.size() ; i++)
     {
         // Calculate target square
-        char t_square = piece.square + sliding_offsets[dir]; 
+        char t_square = piece.square + king_offsets[i]; 
         // Calculate target square color (none, for an empty piece, or black/white)
         Color t_color = board[t_square]->color;
         // Check if it is piece of the same color, break if it is
         if (t_color == piece.color) continue;
         // Check if it an attacked square
-        if (attacked[(bool) piece.color][t_square] && check) continue;
+        if (attacked[(bool) piece.color][t_square]) 
+        {
+            std::cout << (int) t_square << std::endl;
+            continue;
+        }
         // Add the move
         moves.push_back({piece.square, t_square});
         // Check if it is a different color piece, break if it is

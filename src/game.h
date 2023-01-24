@@ -82,7 +82,7 @@ public:
     void print_pieces();
 
     // The most important function, generates all of the possible moves for the ai to choose from
-    std::vector<Move> generate_moves(Color color, bool check);
+    std::vector<Move> generate_moves(Color color);
 
     // A move
     void move(Move move);
@@ -96,7 +96,7 @@ private:
     void bishop_moves(Piece piece, std::vector<Move>& moves);
     void queen_moves(Piece piece, std::vector<Move>& moves);
     void knight_moves(Piece piece, std::vector<Move>& moves);
-    void king_moves(Piece piece, std::vector<Move>& moves, bool check);
+    void king_moves(Piece piece, std::vector<Move>& moves);
     void pawn_moves(Piece piece, std::vector<Move>& moves);
 
     // Update the game_history stack
