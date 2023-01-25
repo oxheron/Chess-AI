@@ -9,7 +9,6 @@ int main(int argc, char** argv)
     Disp disp;
     Board board;
     board.load_fen(fen);
-    auto moves = board.generate_moves(Color::WHITE);
-
+    auto moves = board.generate_moves((Color) turn);
     std::cout << moves.size() << std::endl;
 }

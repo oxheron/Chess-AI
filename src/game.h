@@ -108,4 +108,6 @@ private:
     void calc_pins(Color color);
     // Calculate attacks
     bool calc_attacks(Color color, char square);
+    // Do all updates that has to be done for a move
+    void update_board(Color color);
 };
