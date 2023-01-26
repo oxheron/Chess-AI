@@ -1,4 +1,4 @@
-TARGET_EXEC = Compiler
+TARGET_EXEC = Chess
 CC = clang++
 
 SRC = $(wildcard src/*.cpp) $(wildcard src/**/*.cpp) $(wildcard src/**/**/*.cpp) $(wildcard src/**/**/**/*.cpp)

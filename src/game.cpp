@@ -1088,7 +1088,6 @@ void Board::king_moves(Piece piece, std::vector<Move>& moves)
         Color t_color = board[t_square]->color;
         // Check if it is piece of the same color, break if it is
         if (t_color == piece.color) continue;
-        
         // Check if it an attacked square
         if (attacked[(bool) piece.color][t_square]) continue;
         // Add the move
@@ -1134,3 +1133,4 @@ void Board::pawn_moves(Piece piece, std::vector<Move>& moves)
         if (opposite_color[board[target_sq]->color] == piece.color && (!in_check || std::find(stop_check.begin(), stop_check.end(), target_sq) != stop_check.end())) moves.push_back({piece.square, target_sq});
     }
 }
+git 

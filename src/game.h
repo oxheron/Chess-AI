@@ -90,6 +90,9 @@ public:
     // Do a move backwards
     void unmove(Move move, bool regen);
 
+    // Get turn for generating moves
+    bool get_turn() { return this->turn; }
+
 private:
     // Generate all legal rook moves from a piece, puts result in moves
     void rook_moves(Piece piece, std::vector<Move>& moves);
