@@ -152,7 +152,7 @@ void Board::load_fen(std::string fen)
     });
 
     for (auto [c, varp] : castle_set) if (castle.find(c) != std::string::npos) *varp = true;
-
+    
     update_board((Color) !this->turn);
 
     // Update ep
@@ -362,7 +362,7 @@ void Board::calc_pins(Color color)
                         if (p_offset > 0) offset = 8;
                         else offset = -8;
                     }
-                    else if (p_offset < 8) 
+                    else if ((p->square % 8 - p2->square % 8) != 0 && p->square / 8 == p2->square / 8) 
                     {
                         if (p_offset > 0) offset = 1;
                         else offset = -1;
@@ -503,10 +503,11 @@ bool Board::calc_attacks(Color color, char square)
             char offset;
             if (p_offset % 8 == 0) 
             {
+                std::cout << "1" << std::endl;
                 if (p_offset > 0) offset = 8;
                 else offset = -8;
             }
-            else if (square % 8 - piece->square % 8 > 0 && p_offset / 8 == 0) 
+            else if ((square % 8 - piece->square % 8) != 0 && square / 8 == piece->square / 8) 
             {
                 if (p_offset > 0) offset = 1;
                 else offset = -1;
@@ -601,6 +602,12 @@ void Board::move(Move move)
     update_history();
 
     fifty_mover++;
+
+    // Check if move is promote 
+    if (move.end_pos & 0b1000000)
+    {
+        
+    }
 
     // Do move on board
     Piece start_p = *board[move.start_pos];
@@ -763,7 +770,7 @@ void Board::unmove(Move move, bool regen)
     }
 
     // Update attack squares, pinned pieces, and check
-    if (regen) update_board(start_p.color);
+    if (regen) update_board(opposite_color[start_p.color]);
     
     undo_history();
 }
@@ -794,7 +801,7 @@ void Board::update_board(Color color)
     {
         attacked[!(bool) color][k_sq + sliding_offsets[i]] = calc_attacks(color, k_sq + sliding_offsets[i]);
     }
-    
+
     in_check = calc_attacks(color, k_sq);
 
     // Hardcoded castle squares
@@ -885,7 +892,7 @@ void Board::update_board(Color color)
                     if (p_offset > 0) offset = 8;
                     else offset = -8;
                 }
-                else if (p_offset < 8) 
+                else if ((k_sq % 8 - piece->square % 8) != 0 && k_sq / 8 == piece->square / 8) 
                 {
                     if (p_offset > 0) offset = 1;
                     else offset = -1;
@@ -979,7 +986,11 @@ void Board::rook_moves(Piece piece, std::vector<Move>& moves)
                 char t_square = piece.square + sliding_offsets[dir] * i; 
                 Color t_color = board[t_square]->color;
                 if (t_color == piece.color) break;
-                if (!in_check || std::find(stop_check.begin(), stop_check.end(), (char) t_square) != stop_check.end()) moves.push_back({piece.square, t_square});
+                if (!in_check || std::find(stop_check.begin(), stop_check.end(), (char) t_square) != stop_check.end()) 
+                {
+                    std::cout << "in_check " << (bool) in_check << std::endl; 
+                    moves.push_back({piece.square, t_square});
+                }
                 if (t_color == opposite_color[piece.color]) break;
             }
         }
@@ -1089,7 +1100,7 @@ void Board::king_moves(Piece piece, std::vector<Move>& moves)
         // Check if it is piece of the same color, break if it is
         if (t_color == piece.color) continue;
         // Check if it an attacked square
-        if (attacked[(bool) piece.color][t_square]) continue;
+        if (attacked[(bool) piece.color][t_square]) continue; 
         // Add the move
         moves.push_back({piece.square, t_square});
         // Check if it is a different color piece, break if it is
@@ -1133,4 +1144,3 @@ void Board::pawn_moves(Piece piece, std::vector<Move>& moves)
         if (opposite_color[board[target_sq]->color] == piece.color && (!in_check || std::find(stop_check.begin(), stop_check.end(), target_sq) != stop_check.end())) moves.push_back({piece.square, target_sq});
     }
 }
-git 
