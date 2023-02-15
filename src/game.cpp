@@ -15,6 +15,11 @@ std::unordered_map<char, PieceType> ctop_t({
     {'p', PieceType::PAWN}
 });
 
+// Every piece type that you can promote to 
+std::array<PieceType, 4> promote({
+    PieceType::KNIGHT, PieceType::BISHOP, PieceType::ROOK, PieceType::QUEEN
+});
+
 // Map of opposite colors for generating moves
 std::unordered_map<Color, Color> opposite_color({
     {Color::WHITE, Color::BLACK},
@@ -163,6 +168,41 @@ void Board::load_fen(std::string fen)
     }
 }
 
+std::vector<char> gen_koffsets(char sq)
+{
+    std::vector<char> king_offsets(sliding_offsets.begin(), sliding_offsets.end());
+
+    if (sq % 8 == 0) 
+    {
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -9), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -1), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  7), king_offsets.end());
+    }
+
+    if (sq % 8 == 7)
+    {
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -7), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  1), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  9), king_offsets.end());
+    }
+
+    if (sq / 8 == 0)
+    {
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -9), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -8), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -7), king_offsets.end());
+    }
+
+    if (sq / 8 == 7)
+    {
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  7), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  8), king_offsets.end());
+        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  9), king_offsets.end());
+    }
+
+    return king_offsets;
+}
+
 std::vector<Move> Board::generate_moves(Color color)
 {
     std::vector<Move> return_v;
@@ -171,45 +211,27 @@ std::vector<Move> Board::generate_moves(Color color)
     {
         if (piece->piece_t == PieceType::PAWN) 
         {
-            size_t s = return_v.size();
-            std::cout << "pawn" << std::endl;
             pawn_moves(*piece, return_v);
-            std::cout << return_v.size() - s << std::endl;
         }
         else if (piece->piece_t == PieceType::KNIGHT) 
         {
-            size_t s = return_v.size();
-            std::cout << "knight" << std::endl;
             knight_moves(*piece, return_v);
-            std::cout << return_v.size() - s << std::endl;
         }
         else if (piece->piece_t == PieceType::BISHOP) 
         {
-            size_t s = return_v.size();
-            std::cout << "bishop" << std::endl;
             bishop_moves(*piece, return_v);
-            std::cout << return_v.size() - s << std::endl;
         }
         else if (piece->piece_t == PieceType::ROOK) 
         {
-            size_t s = return_v.size();
-            std::cout << "rook" << std::endl;
             rook_moves(*piece, return_v);
-            std::cout << return_v.size() - s << std::endl;
         }
         else if (piece->piece_t == PieceType::QUEEN)
         {
-            size_t s = return_v.size();
-            std::cout << "queen" << std::endl;
             queen_moves(*piece, return_v);
-            std::cout << return_v.size() - s << std::endl;
         }
         else if (piece->piece_t == PieceType::KING) 
         {
-            size_t s = return_v.size();
-            std::cout << "king" << std::endl;
             king_moves(*piece, return_v);
-            std::cout << return_v.size() - s << std::endl;
         }
     }
 
@@ -247,8 +269,6 @@ std::vector<Move> Board::generate_moves(Color color)
         if (board[ep_square + pawn_offset[!(bool) color][1]]->piece_t == PieceType::PAWN && (!in_check || std::find(stop_check.begin(), stop_check.end(), ep_square) != stop_check.end())) return_v.push_back({ep_square, (char) (ep_square + pawn_offset[!(bool) color][1])});
         if (board[ep_square + pawn_offset[!(bool) color][2]]->piece_t == PieceType::PAWN && (!in_check || std::find(stop_check.begin(), stop_check.end(), ep_square) != stop_check.end())) return_v.push_back({ep_square, (char) (ep_square + pawn_offset[!(bool) color][2])}); 
     }
-
-    std::cout << return_v.size() << std::endl;
 
     return return_v;
 }
@@ -447,6 +467,7 @@ bool Board::calc_attacks(Color color, char square)
     {
         if (piece->piece_t == PieceType::PAWN) 
         {
+            std::cout << "pawn crash" << std::endl;
             // Calculate a capture to the left (if its not on the leftmost file)
             if (piece->square % 8 != 0)
             {
@@ -463,14 +484,18 @@ bool Board::calc_attacks(Color color, char square)
         }
         else if (piece->piece_t == PieceType::KNIGHT) 
         {
+            std::cout << "knight crash" << std::endl;
             char offset = square - piece->square;
+            if (offset == 0) continue;
             char ox = offset % 8;
             char oy = offset / 8;
             if (std::find(knight_offsets.begin(), knight_offsets.end(), std::pair<char, char>(ox, oy)) != knight_offsets.end()) return 1;
         }
         else if (piece->piece_t == PieceType::BISHOP) 
         {
+            std::cout << "bishop crash" << std::endl;
             char p_offset = square - piece->square;
+            if (p_offset == 0) continue;
             char offset;
             if (p_offset % 7 == 0) 
             {
@@ -496,14 +521,16 @@ bool Board::calc_attacks(Color color, char square)
             }
 
             if (np_empty) return 1;    
+
         }
         else if (piece->piece_t == PieceType::ROOK) 
         {
+            std::cout << "rook crash" << std::endl;
             char p_offset = square - piece->square;
             char offset;
+            if (p_offset == 0) continue;
             if (p_offset % 8 == 0) 
             {
-                std::cout << "1" << std::endl;
                 if (p_offset > 0) offset = 8;
                 else offset = -8;
             }
@@ -517,7 +544,7 @@ bool Board::calc_attacks(Color color, char square)
             bool np_empty = 1;
             for (size_t i = 1; ; i++)
             {
-                if (board[piece->square + i * offset]->piece_t != PieceType::EMPTY && board[piece->square + i * offset]->piece_t != PieceType::KING)
+                if (board[piece->square + i * offset]->piece_t != PieceType::EMPTY && board[piece->square + i * offset]->piece_t != PieceType::KING) 
                 {
                     np_empty = 0;
                     break;
@@ -525,16 +552,14 @@ bool Board::calc_attacks(Color color, char square)
                 if (piece->square + i * offset == square) break;
             }
 
-
-            if (np_empty) 
-            {   
-                return 1;      
-            }
+            if (np_empty) return 1;
         }
         else if (piece->piece_t == PieceType::QUEEN)
         {
+            std::cout << "queen crash" << std::endl;
             char p_offset = square - piece->square;
             char offset;
+            if (p_offset == 0) continue;
             if (p_offset % 7 == 0) 
             {
                 if (p_offset > 0) offset = 7;
@@ -550,14 +575,16 @@ bool Board::calc_attacks(Color color, char square)
                 if (p_offset > 0) offset = 8;
                 else offset = -8;
             }
-            else if (p_offset < 8) 
+            else if ((square % 8 - piece->square % 8) != 0 && square / 8 == piece->square / 8) 
             {
                 if (p_offset > 0) offset = 1;
                 else offset = -1;
             }
             else continue;
 
-            if (p_offset == 0) continue;
+            std::cout << (int) piece->square << std::endl;
+            std::cout << (int) square << std::endl;
+            std::cout << "ballsak" << std::endl;
 
             bool np_empty = 1;
             for (size_t i = 1; ; i++)
@@ -574,6 +601,7 @@ bool Board::calc_attacks(Color color, char square)
         }
         else if (piece->piece_t == PieceType::KING) 
         {
+            std::cout << "king crash" << std::endl;
             for (char dir = 0; dir < 8; dir++)
             {
                 if (square == piece->square + sliding_offsets[dir]) return 1;
@@ -603,29 +631,32 @@ void Board::move(Move move)
 
     fifty_mover++;
 
-    // Check if move is promote 
-    if (move.end_pos & 0b1000000)
-    {
-        
-    }
-
     // Do move on board
     Piece start_p = *board[move.start_pos];
     if (start_p.color != (Color) turn) return;
 
+    // Check if move is promote 
+    if (move.end_pos & 0b1000000)
+    {
+        // Extract type of piece and square that it is moving to
+        // Change the piece, and set the move_end to the square
+        board[move.start_pos]->piece_t = (PieceType) ((move.end_pos & 0b00111000) >> 3);
+        move.end_pos = move.start_pos + pawn_offset[(int)start_p.color][move.end_pos & 0b00000011];
+    }
+
+
+    // Do capture
     if (board[move.end_pos]->color == opposite_color[start_p.color]) 
     {
         capture_type = (char) board[move.end_pos]->piece_t;
-        for (auto p : (((bool) board[move.end_pos]->color) ? white : black))
-        {
-            if (p->square == move.end_pos) (((bool) board[move.end_pos]->color) ? white : black).remove(p);
-        }
+        (((bool) board[move.end_pos]->color) ? white : black).remove(board[move.end_pos]);
         board[move.end_pos]->color = Color::NONE;
         board[move.end_pos]->piece_t = PieceType::EMPTY;
 
         fifty_mover = 0;
     }
 
+    // Do the move on the board
     board[move.end_pos]->square = move.start_pos;
     board[move.start_pos]->square = move.end_pos;
     board[move.start_pos].swap(board[move.end_pos]);
@@ -708,6 +739,7 @@ void Board::move(Move move)
         }
     } 
 
+
     // Do castling
     if (turn) this->moves++;
 }
@@ -720,6 +752,15 @@ void Board::unmove(Move move, bool regen)
     turn = !turn;
     if (turn) this->moves--;
 
+    // Check if move is promote 
+    if (move.end_pos & 0b1000000)
+    {
+        // Get end square, change piece back to pawn
+        Color temp_c = move.end_pos > 32 ? Color::WHITE : Color::BLACK;
+        move.end_pos = move.start_pos + pawn_offset[(int)temp_c][move.end_pos & 0b00000011];
+        board[move.end_pos]->piece_t = PieceType::PAWN;
+    }
+
     // Undo the move on board
     Piece start_p = *board[move.end_pos];
 
@@ -727,11 +768,9 @@ void Board::unmove(Move move, bool regen)
     board[move.start_pos]->square = move.end_pos;
     board[move.start_pos].swap(board[move.end_pos]);
 
-    std::cout << (int) capture_type << std::endl;
     // Undo captures
     if (capture_type != 0b000 && capture_type != 0b111) 
     {
-        std::cout << "this function is broken" << std::endl;
         // Ep capture
         // Check ep square and make sure that the pawn is moving into that file
         if (((game_history.top() & (short) 0b01110000000) >> 7) == 0b111 && move.end_pos % 8 == ((game_history.top() & (short) 0b01110000) >> 4))
@@ -797,16 +836,21 @@ void Board::update_board(Color color)
     // Do attacking squares right ie the 8 squares around the king, the king, and castling squares 
     // Generate attack squares
     // Squares adjacent to king
-    for (size_t i = 0; i < 8; i++)
+
+    auto king_offsets = gen_koffsets(k_sq);
+
+    std::cout << "updated board" << std::endl;
+
+    for (size_t i = 0; i < king_offsets.size(); i++)
     {
-        attacked[!(bool) color][k_sq + sliding_offsets[i]] = calc_attacks(color, k_sq + sliding_offsets[i]);
+        attacked[!(bool) color][k_sq + king_offsets[i]] = calc_attacks(color, k_sq + king_offsets[i]);
     }
 
     in_check = calc_attacks(color, k_sq);
 
     // Hardcoded castle squares
-    attacked[!(bool) color][k_sq - 2] = calc_attacks(color, k_sq - 2);
-    attacked[!(bool) color][k_sq + 2] = calc_attacks(color, k_sq + 2);
+    if (k_sq - 2 >= 0 && k_sq - 2 < 64) attacked[!(bool) color][k_sq - 2] = calc_attacks(color, k_sq - 2);
+    if (k_sq + 2 >= 0 && k_sq + 2 < 64) attacked[!(bool) color][k_sq + 2] = calc_attacks(color, k_sq + 2); 
 
     // If 2 pieces, king must move
     // If 1 piece, based on the piece, generate a list of squares that stops the check (such as taking the checking piece or blocking)
@@ -988,7 +1032,6 @@ void Board::rook_moves(Piece piece, std::vector<Move>& moves)
                 if (t_color == piece.color) break;
                 if (!in_check || std::find(stop_check.begin(), stop_check.end(), (char) t_square) != stop_check.end()) 
                 {
-                    std::cout << "in_check " << (bool) in_check << std::endl; 
                     moves.push_back({piece.square, t_square});
                 }
                 if (t_color == opposite_color[piece.color]) break;
@@ -1060,35 +1103,7 @@ void Board::knight_moves(Piece piece, std::vector<Move>& moves)
 // Calculate all valid king moves
 void Board::king_moves(Piece piece, std::vector<Move>& moves)
 {
-    std::vector<char> king_offsets(sliding_offsets.begin(), sliding_offsets.end());
-
-    if (piece.square % 8 == 0) 
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -9), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -1), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  7), king_offsets.end());
-    }
-
-    if (piece.square % 8 == 7)
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -7), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  1), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  9), king_offsets.end());
-    }
-
-    if (piece.square / 8 == 0)
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -9), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -8), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -7), king_offsets.end());
-    }
-
-    if (piece.square / 8 == 7)
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  7), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  8), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  9), king_offsets.end());
-    }
+    auto king_offsets = gen_koffsets(piece.square);
     
     // Loop through all directions
     for (size_t i = 0; i < king_offsets.size() ; i++)
@@ -1124,7 +1139,24 @@ void Board::pawn_moves(Piece piece, std::vector<Move>& moves)
         char pawn_oy = pawn_offset[(bool)piece.color][0];
         if (board[piece.square + pawn_oy]->piece_t == PieceType::EMPTY)
         {
-            if (!in_check || std::find(stop_check.begin(), stop_check.end(), (char) piece.square + pawn_oy) != stop_check.end()) moves.push_back({piece.square, (char) (piece.square + pawn_oy)});
+            if (!in_check || std::find(stop_check.begin(), stop_check.end(), (char) piece.square + pawn_oy) != stop_check.end()) 
+            {
+                char target_sq;
+                if ((char) (piece.square + pawn_oy) > 55 || (char) (piece.square + pawn_oy) < 8)
+                {
+                    target_sq =  0b1000000;
+                    for (auto pt : promote)
+                    {
+                        target_sq &= 0b10000111;
+                        target_sq |= 0b00111000 & ((char)pt << 3);
+                        moves.push_back({piece.square, target_sq});
+                    }
+                }
+                else 
+                {
+                    moves.push_back({piece.square, (char) (piece.square + pawn_oy)});
+                }
+            }
             // Calculate if a piece can move forward 2 (only on starting square)
             if (board[piece.square + pawn_oy * 2]->piece_t == PieceType::EMPTY && py == start_y[(bool) piece.color] && (!in_check || std::find(stop_check.begin(), stop_check.end(), (char) piece.square + pawn_oy * 2) != stop_check.end())) moves.push_back({piece.square, (char) (piece.square + pawn_oy * 2)});
         }
@@ -1134,13 +1166,47 @@ void Board::pawn_moves(Piece piece, std::vector<Move>& moves)
     if (px != 0 && (pinned_squares[(bool) piece.color][piece.square] == 0 || pinned_squares[(bool) piece.color][piece.square] == 9))
     {
         char target_sq = piece.square + pawn_offset[(bool)piece.color][1];
-        if (opposite_color[board[target_sq]->color] == piece.color && (!in_check || std::find(stop_check.begin(), stop_check.end(), target_sq) != stop_check.end())) moves.push_back({piece.square, target_sq});
+        if (opposite_color[board[target_sq]->color] == piece.color && (!in_check || std::find(stop_check.begin(), stop_check.end(), target_sq) != stop_check.end()))
+        {
+            if (target_sq > 55 || target_sq < 8)
+            {
+                target_sq =  0b1000000;
+                target_sq |= 1;
+                for (auto pt : promote)
+                {
+                    target_sq &= 0b10000111;
+                    target_sq |= 0b00111000 & ((char)pt << 3);
+                    moves.push_back({piece.square, target_sq});
+                }
+            }
+            else 
+            {
+                moves.push_back({piece.square, target_sq});
+            }
+        } 
     }
 
     // Calculate a capture to the right (if its not on the rightmost file)
     if (px != 7 && (pinned_squares[(bool) piece.color][piece.square] == 0 || pinned_squares[(bool) piece.color][piece.square] == 7))
     {
         char target_sq = piece.square + pawn_offset[(bool)piece.color][2];
-        if (opposite_color[board[target_sq]->color] == piece.color && (!in_check || std::find(stop_check.begin(), stop_check.end(), target_sq) != stop_check.end())) moves.push_back({piece.square, target_sq});
+        if (opposite_color[board[target_sq]->color] == piece.color && (!in_check || std::find(stop_check.begin(), stop_check.end(), target_sq) != stop_check.end()))
+        {
+            if (target_sq > 55 || target_sq < 8)
+            {
+                target_sq =  0b1000000;
+                target_sq |= 2;
+                for (auto pt : promote)
+                {
+                    target_sq &= 0b10000111;
+                    target_sq |= 0b00111000 & ((char)pt << 3);
+                    moves.push_back({piece.square, target_sq});
+                }
+            }
+            else 
+            {
+                moves.push_back({piece.square, target_sq});
+            }
+        } 
     }
 }
