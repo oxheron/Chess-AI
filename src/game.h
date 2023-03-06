@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory>
 #include <stack>
+#include <bitset>
 
 // Holds data for a move, returned in the move piece function
 struct Move
@@ -24,9 +25,13 @@ private:
 public:
     // Board for checking moves
     std::array<std::shared_ptr<Piece>, 64> board;
+    
+    // Bitboard for fast generation
+    std::bitset<64> white_pieces;
+    std::bitset<64> black_pieces;
+    std::bitset<64> all_pieces;
 private:
-
-    // Lists of pieces (the pointers are linked to the board)
+    // Lists of pieces
     std::list<std::shared_ptr<Piece>> white;
     std::list<std::shared_ptr<Piece>> black;
 

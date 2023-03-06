@@ -62,7 +62,8 @@
         "fstream": "cpp",
         "sstream": "cpp",
         "cinttypes": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "bitset": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
