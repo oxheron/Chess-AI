@@ -17,11 +17,6 @@ std::unordered_map<char, PieceType> ctop_t({
     {'p', PieceType::PAWN}
 });
 
-// Every piece type that you can promote to 
-std::array<PieceType, 4> promote({
-    PieceType::KNIGHT, PieceType::BISHOP, PieceType::ROOK, PieceType::QUEEN
-});
-
 // Map of opposite colors for generating moves
 std::unordered_map<Color, Color> opposite_color({
     {Color::WHITE, Color::BLACK},
@@ -29,8 +24,24 @@ std::unordered_map<Color, Color> opposite_color({
     {Color::NONE, Color::NONE}
 });
 
-// Calculate the valid bits in the bitset for the starting square and each direction
+// Calculate the valid bits in the bitset for the given square and each direction for sliding pieces
 std::array<std::array<uint64_t, 8>, 64> bit_tables;
+
+// Calculate the valid bits in the bitset for knights on the given square
+std::array<uint64_t, 64> knight_bit_tables;
+
+// Calculate the valid bits in the bitset for pawn on the given square (and color)
+std::array<std::array<uint64_t, 64>, 2> pawn_forward;
+std::array<std::array<uint64_t, 64>, 2> pawn_captures;
+
+// King allowed moves calculation and bitmaps (only for calculating attack squares)
+std::array<uint64_t, 64> king_bit_tables;
+
+// Calculate the valid bits in a bitset for a certain EP file
+std::array<std::array<uint64_t, 8>, 2> ep_bitmap({{
+    {{(uint64_t)1 << 16, (uint64_t)1 << 17, (uint64_t)1 << 18, (uint64_t)1 << 19, (uint64_t)1 << 20, (uint64_t)1 << 21, (uint64_t)1 << 22, (uint64_t)1 << 23}},
+    {{(uint64_t)1 << 40, (uint64_t)1 << 41, (uint64_t)1 << 42, (uint64_t)1 << 43, (uint64_t)1 << 44, (uint64_t)1 << 45, (uint64_t)1 << 46, (uint64_t)1 << 47}},
+}});
 
 // List of sliding piece offsets based on direction 
 // Left, right, north, south, nw, sw, ne, se
@@ -50,15 +61,21 @@ std::array<std::pair<char, char>, 8> knight_offsets({{
     {-2, 1}
 }});
 
-// List of pawn offsets based on direction and color
-std::array<std::array<char, 3>, 2> pawn_offset = {{
-    {-8, -9, -7}, 
-    { 8,  9,  7}
-}};
+// List of offsets for the pawn for each color
+std::array<std::array<char, 3>, 2> pawn_offsets({{
+    {{-8, -9, -7}},
+    {{ 8,  9,  7}}
+}});
 
 // Pawn starting squares
 std::array<char, 2> start_y = {
     6, 1
+};
+
+// If a rank/file is in bounds it will return this
+std::array<char, 8> in_bounds = 
+{
+    0, 1, 2, 3, 4, 5, 6, 7
 };
 
 // Generate a map of how far a square is from the edge
@@ -75,9 +92,10 @@ void gen_bit_tables()
         char numWest = x + 1;
         char numEast = 8 - x;
 
-        std::array<char, 8> num_to_edge = {
+        std::array<char, 8> num_to_edge = 
+        {
             numWest, numEast, numNorth, numSouth, std::min(numWest, numNorth), std::min(numWest, numSouth), std::min(numEast, numNorth), std::min(numEast, numSouth)
-        }
+        };
 
         for (size_t i = 0; i < 8; i++)
         {
@@ -88,6 +106,37 @@ void gen_bit_tables()
             }
             bit_tables[sq][i] = save.to_ullong();
         }
+
+        std::bitset<64> save = 0;
+        for (auto off : knight_offsets)
+        {
+            if (in_bounds[x + off.first] || in_bounds[y + off.second]) save[x + off.first + (y + off.second) * 8] = 1;
+        }
+
+        knight_bit_tables[sq] = save.to_ullong();
+
+        save = 0;
+        save[sq + pawn_offsets[0][0]] = 1;
+        pawn_forward[0][sq] = save.to_ullong();
+        save = 0;
+        save[sq + pawn_offsets[1][0]] = 1;
+        pawn_forward[1][sq] = save.to_ullong();
+        save = 0;
+        if (in_bounds[(sq + pawn_offsets[0][1]) / 8]) save[sq + pawn_offsets[0][1]] = 1;
+        if (in_bounds[(sq + pawn_offsets[0][2]) / 8]) save[sq + pawn_offsets[0][2]] = 1;
+        pawn_captures[0][sq] = save.to_ullong();
+        save = 0;
+        if (in_bounds[(sq + pawn_offsets[1][1]) / 8]) save[sq + pawn_offsets[1][1]] = 1;
+        if (in_bounds[(sq + pawn_offsets[1][2]) / 8]) save[sq + pawn_offsets[1][2]] = 1;
+        pawn_captures[1][sq] = save.to_ullong();
+        save = 0;
+
+        for (size_t i = 0; i < 8; i++)
+        {
+            if (in_bounds[(sq + sliding_offsets[i]) / 8] && in_bounds[(sq + sliding_offsets[i]) % 8]) save[sq + sliding_offsets[i]] = 1;
+        }
+
+        king_bit_tables[sq] = save.to_ullong();
     }
 }
 
@@ -177,41 +226,6 @@ void Board::load_fen(std::string fen)
     }
 }
 
-std::vector<char> gen_koffsets(char sq)
-{
-    std::vector<char> king_offsets(sliding_offsets.begin(), sliding_offsets.end());
-
-    if (sq % 8 == 0) 
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -9), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -1), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  7), king_offsets.end());
-    }
-
-    if (sq % 8 == 7)
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(), -7), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  1), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  9), king_offsets.end());
-    }
-
-    if (sq / 8 == 0)
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -9), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -8), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  -7), king_offsets.end());
-    }
-
-    if (sq / 8 == 7)
-    {
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  7), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  8), king_offsets.end());
-        king_offsets.erase(std::remove(king_offsets.begin(), king_offsets.end(),  9), king_offsets.end());
-    }
-
-    return king_offsets;
-}
-
 std::vector<Move> Board::generate_moves(Color color)
 {
     std::vector<Move> return_v;
@@ -221,14 +235,14 @@ std::vector<Move> Board::generate_moves(Color color)
         if (piece->piece_t == PieceType::PAWN) 
         {
             uint64_t move_bmap = pawn_moves(*piece);
-            if (move_bmap & 0xFF == 0xFF || );
+            if ((move_bmap & 0xFF) == 0xFF)
             {
                 return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::KNIGHT});
                 return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::BISHOP});
                 return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::ROOK});
                 return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::QUEEN});
             }
-            else if (move_bmap & 0xFF00000000000000 == 0xFF00000000000000)
+            else if ((move_bmap & 0xFF00000000000000) == 0xFF00000000000000)
             {
                 return_v.push_back(Move{*piece, move_bmap & ~0xFF00000000000000, PieceType::KNIGHT});
                 return_v.push_back(Move{*piece, move_bmap & ~0xFF00000000000000, PieceType::BISHOP});
@@ -243,42 +257,41 @@ std::vector<Move> Board::generate_moves(Color color)
         }
         else if (piece->piece_t == PieceType::KNIGHT) 
         {
-            return_v.push_back(Move{*piece, knight_moves(*piece));
+            return_v.push_back(Move{*piece, knight_moves(*piece)});
         }
         else if (piece->piece_t == PieceType::KING) 
         {
-            return_v.push_back(Move{(*piece, king_moves(*piece)});
+            return_v.push_back(Move{*piece, attacked[(bool) piece->color].to_ullong()});
         }
         else
         {
-            return_v.push_back(Move{*piece, sliding_offsets(*piece)});
+            return_v.push_back(Move{*piece, sliding_moves(*piece)});
         }
     }
 
-    // Special moves
     // Castling
-    if (color == Color::WHITE)
-    {
-        if (white_KC)
-        {
-            if (!in_check && !attacked[1][5] && !attacked[1][6] && board[5]->color == Color::NONE && board[6]->color == Color::NONE) return_v.push_back({4, 6});
-        }   
-        if (white_QC)
-        {
-            if (!in_check && !attacked[1][2] && !attacked[1][3] && board[2]->color == Color::NONE && board[3]->color == Color::NONE) return_v.push_back({4, 2});
-        }
-    }
-    else
-    {
-        if (black_KC)
-        {
-            if (!in_check && !attacked[0][61] && !attacked[0][62] && board[61]->color == Color::NONE && board[62]->color == Color::NONE) return_v.push_back({60, 62});
-        }   
-        if (black_QC)
-        {
-            if (!in_check && !attacked[0][58] && !attacked[0][59] && board[58]->color == Color::NONE && board[59]->color == Color::NONE) return_v.push_back({60, 58});
-        }
-    }
+    // if (color == Color::WHITE)
+    // {
+    //     if (white_KC)
+    //     {
+    //         if (!in_check && !attacked[1][5] && !attacked[1][6] && board[5]->color == Color::NONE && board[6]->color == Color::NONE) return_v.push_back({4, 6});
+    //     }   
+    //     if (white_QC)
+    //     {
+    //         if (!in_check && !attacked[1][2] && !attacked[1][3] && board[2]->color == Color::NONE && board[3]->color == Color::NONE) return_v.push_back({4, 2});
+    //     }
+    // }
+    // else
+    // {
+    //     if (black_KC)
+    //     {
+    //         if (!in_check && !attacked[0][61] && !attacked[0][62] && board[61]->color == Color::NONE && board[62]->color == Color::NONE) return_v.push_back({60, 62});
+    //     }   
+    //     if (black_QC)
+    //     {
+    //         if (!in_check && !attacked[0][58] && !attacked[0][59] && board[58]->color == Color::NONE && board[59]->color == Color::NONE) return_v.push_back({60, 58});
+    //     }
+    // }
 
     return return_v;
 }
@@ -335,7 +348,7 @@ void Board::undo_history()
 // ADD FLAG FOR ATTACKING SQUARES + PIN CHECKING to turn of pin checking for pin generation moves
 // Pinned directions are 0 (nothing) 1 (horizontal) 2 (vertical) 3 (nwse) 4 (nesw)
 
-std::bitset<64> sliding_moves(Piece piece)
+uint64_t Board::sliding_moves(Piece piece)
 {
     size_t start = piece.piece_t == PieceType::BISHOP ? 4 : 0;
     size_t end = piece.piece_t == PieceType::QUEEN ? 8 : start + 4;
@@ -347,31 +360,30 @@ std::bitset<64> sliding_moves(Piece piece)
         // Pin logic
         // if (pinned_direction[pins[piece.square]][start]) continue;
 
-        uint64_t masked_blockers = bit_tables[piece.square][start] & bitboard.to_ullong();
+        uint64_t masked_blockers = bit_tables[piece.square][start] & all_pieces.to_ullong();
         char closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
-        if (board[closest]->color == piece.color) closest - sliding_offsets[start];
-        uint64_t psudolegal = bit_tables[piece.square][start] & ~bit_tables[closest][start];
+        if (board[closest]->color == piece.color) closest -= sliding_offsets[start];
+        output |= bit_tables[piece.square][start] & ~bit_tables[closest][start];
     }
 
-    return output;
-    // return output & stop_checks; For check logic
+    return output & stop_check.to_ullong();
 }
 
-std::bitset<64> knight_moves(Piece piece)
+uint64_t Board::knight_moves(Piece piece)
 {
     // if (pins[piece.square] != 0) return 0; PIN Logic
-    return knight_bit_tables[piece.square] & ~(piece.color == Color::WHITE ? white_pieces.to_ullong() : black_pieces.to_ullong()); // Legal move logic & stop_check;
+    return knight_bit_tables[piece.square] & ~(piece.color == Color::WHITE ? white_pieces.to_ullong() : black_pieces.to_ullong()) & stop_check.to_ullong();
 } 
 
-std::bitset<64> pawn_moves(Piece piece)
+uint64_t Board::pawn_moves(Piece piece)
 {
     // Calculate moving 1 forward and capturing (from pawn map)
     // If the move forward promote at bits at opposite side for what it is promoting to 
     // Use hardcoded logic for 2 squares 
 
     // Do ep using ep_bitmap
-    uint64_t output = (pawn_captures[piece.square] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) || ep_bitmap[ep_square])) || (pawn_forward[piece.square] & ~all_pieces);
-    // output &= pinned_squares[piece.square][pins[piece.square]]; PIN LOGIC
+    uint64_t output = (pawn_captures[(bool) piece.color][piece.square] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) || ep_bitmap[(bool) piece.color][ep_file])) || (pawn_forward[(bool) piece.color][piece.square] & ~all_pieces.to_ullong());
+    // output &= pinned_squares[piece.square][pins[(int) piece.color][piece.square]]; PIN LOGIC
 
     // Check for promotion  
     if (piece.square < 8) output |= 0xFF;
@@ -379,4 +391,6 @@ std::bitset<64> pawn_moves(Piece piece)
 
     // Do proper checking of start squares 
     // if (!all_pieces[piece.square += pawn_offset[piece.color]] && !all_pieces[piece.square += 2 * pawn_offset[piece.color]]) output |= 1 << (piece.square += pawn_offset[piece.color])
+
+    return output & stop_check.to_ullong();
 }

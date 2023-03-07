@@ -15,7 +15,36 @@
 struct Move
 {
     char start_pos;
-    char end_pos;
+    uint64_t bitboard;
+    PieceType promote;
+
+    inline Move()
+    {
+        start_pos = 0;
+        bitboard  = 0;
+        promote = PieceType::EMPTY;
+    }
+
+    inline Move(char start_pos, uint64_t bitboard)
+    {
+        this->start_pos = start_pos;
+        this->bitboard = bitboard;
+        this->promote = PieceType::EMPTY;
+    }
+
+    inline Move(Piece start_pos, uint64_t bitboard)
+    {
+        this->start_pos = start_pos.square;
+        this->bitboard = bitboard;
+        this->promote = PieceType::EMPTY;
+    }
+    
+    inline Move(Piece start_pos, uint64_t bitboard, PieceType promote)
+    {
+        this->start_pos = start_pos.square;
+        this->bitboard = bitboard;
+        this->promote = promote;
+    }
 };
 
 // The chess board, has functions about making moves and loading fen strings
@@ -48,16 +77,16 @@ private:
     bool turn = 1;
     size_t moves;
 
-    // Info about what squares are attacked (for both colors)
-    std::array<std::array<bool, 64>, 2> attacked;
+    // Info about what king squares are not attacked and are legal moves (for both colors), at least for now done by move gen without pins 
+    std::array<std::bitset<64>, 2> attacked;
 
     // Is the opposing king in check? 
     bool in_check;
-    // Squares to block or take check
-    std::vector<char> stop_check;
+    // Squares to block or take to stop check
+    std::bitset<64> stop_check;
 
     // What pieces are pinned (square and 1 of the 8 directions, for both colors)
-    std::array<std::array<char, 64>, 2> pinned_squares;
+    std::array<std::bitset<64>, 2> pinned_squares;
 
     // Info about past captures
     // Bits 0-3 are castle state 0 is white_KC, 3 is black_QC
@@ -100,12 +129,9 @@ public:
 
 private:
     // Generate all legal rook moves from a piece, puts result in moves
-    void rook_moves(Piece piece, std::vector<Move>& moves);
-    void bishop_moves(Piece piece, std::vector<Move>& moves);
-    void queen_moves(Piece piece, std::vector<Move>& moves);
-    void knight_moves(Piece piece, std::vector<Move>& moves);
-    void king_moves(Piece piece, std::vector<Move>& moves);
-    void pawn_moves(Piece piece, std::vector<Move>& moves);
+    uint64_t sliding_moves(Piece piece);
+    uint64_t knight_moves(Piece piece);
+    uint64_t pawn_moves(Piece piece);
 
     // Update the game_history stack
     void update_history();

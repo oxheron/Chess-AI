@@ -49,7 +49,7 @@ int bit_scan_fw(uint64_t x)
  * @return index (0..63) of most significant one bit
  */
 int bit_scan_rv(uint64_t x) {
-   asm ("bsrl %0, %0" : "=r" (x) : "0" (x));
+   asm ("bsrq %0, %0" : "=r" (x) : "0" (x));
    return (int) x;
 }
 #endif
