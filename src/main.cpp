@@ -1,6 +1,8 @@
 #include "disp.h"
 #include "ai/minimax.h"
 
+#include "bitset_handle.h"
+
 // std
 #include <iostream>
 
@@ -11,6 +13,10 @@ int main(int argc, char** argv)
     Disp disp;
     Board board;
     board.load_fen(fen);
-    std::cout << search(2, board) << std::endl;
-    std::cout << "susus" << std::endl;
+    auto moves = board.generate_moves((Color) board.get_turn());
+
+    for (auto x : moves)
+    {
+        print_bitset(x.bitboard);
+    }
 }

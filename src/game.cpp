@@ -1,10 +1,10 @@
 #include "game.h"
 
-#include "bitscan.h"
+#include "bitset_handle.h"
 
 // std
 #include <iostream>
-#include <unordered_map>
+#include <set>
 #include <cctype>
 
 // Convert characters to piecetypes
@@ -31,11 +31,14 @@ std::array<std::array<uint64_t, 8>, 64> bit_tables;
 std::array<uint64_t, 64> knight_bit_tables;
 
 // Calculate the valid bits in the bitset for pawn on the given square (and color)
-std::array<std::array<uint64_t, 64>, 2> pawn_forward;
-std::array<std::array<uint64_t, 64>, 2> pawn_captures;
+std::array<std::array<uint64_t, 2>, 64> pawn_forward;
+std::array<std::array<uint64_t, 2>, 64> pawn_captures;
 
 // King allowed moves calculation and bitmaps (only for calculating attack squares)
 std::array<uint64_t, 64> king_bit_tables;
+
+// Pin tables, for a square and a PIN DIRECTION what table do you have
+std::array<std::array<uint64_t, 5>, 64> pin_tables;
 
 // King castle squares (bitmaps), add 2 if color is white
 std::array<uint64_t, 4> king_castle({
@@ -77,19 +80,38 @@ std::array<std::array<char, 3>, 2> pawn_offsets({{
     {{ 8,  9,  7}}
 }});
 
+// List of different offsets for pins and how the correspond to sliding offsets
+// Pinned directions are 0 (nothing) 1 (horizontal) 2 (vertical) 3 (nwse) 4 (nesw)
+std::unordered_map<char, char> pin_offsets({
+    {-1, 1},
+    {1, 1}, 
+    {-8, 2},
+    {8, 2},
+    {-7, 3},
+    {7, 3},
+    {-9, 4},
+    {9, 4}
+});
+
+// Reverse of pin offsets
+std::unordered_map<char, std::pair<char, char>> rv_pin_offsets({
+    {1, {1, -1}},
+    {2, {8, -8}},
+    {3, {7, -7}},
+    {4, {9, -9}}
+});
+
 // Pawn starting squares
 std::array<char, 2> start_y = {
     6, 1
 };
 
 // If a rank/file is in bounds it will return this
-std::array<char, 8> in_bounds = 
-{
-    0, 1, 2, 3, 4, 5, 6, 7
-};
+std::set<char> in_bounds({
+    0, 1, 2, 3, 4, 5, 6, 7, 8
+});
 
-// Generate a map of how far a square is from the edge
-// Left, Right, Top, Bottom, northwest, southwest, northeast, southeast
+// Generate all of the maps used
 void gen_bit_tables()
 {
     for (size_t sq = 0; sq < 64; sq++)
@@ -120,33 +142,41 @@ void gen_bit_tables()
         std::bitset<64> save = 0;
         for (auto off : knight_offsets)
         {
-            if (in_bounds[x + off.first] || in_bounds[y + off.second]) save[x + off.first + (y + off.second) * 8] = 1;
+            if (in_bounds.contains(x + off.first) || in_bounds.contains(y + off.second)) save[x + off.first + (y + off.second) * 8] = 1;
         }
 
         knight_bit_tables[sq] = save.to_ullong();
 
         save = 0;
         save[sq + pawn_offsets[0][0]] = 1;
-        pawn_forward[0][sq] = save.to_ullong();
+        pawn_forward[sq][0] = save.to_ullong();
         save = 0;
         save[sq + pawn_offsets[1][0]] = 1;
-        pawn_forward[1][sq] = save.to_ullong();
+        pawn_forward[sq][0] = save.to_ullong();
         save = 0;
-        if (in_bounds[(sq + pawn_offsets[0][1]) / 8]) save[sq + pawn_offsets[0][1]] = 1;
-        if (in_bounds[(sq + pawn_offsets[0][2]) / 8]) save[sq + pawn_offsets[0][2]] = 1;
-        pawn_captures[0][sq] = save.to_ullong();
+        if (in_bounds.contains((sq + pawn_offsets[0][1]) / 8) && in_bounds.contains((sq + pawn_offsets[0][1]) % 8)) save[sq + pawn_offsets[0][1]] = 1;
+        if (in_bounds.contains((sq + pawn_offsets[0][2]) / 8) && in_bounds.contains((sq + pawn_offsets[0][2]) % 8)) save[sq + pawn_offsets[0][2]] = 1;
+        pawn_captures[sq][0] = save.to_ullong();
         save = 0;
-        if (in_bounds[(sq + pawn_offsets[1][1]) / 8]) save[sq + pawn_offsets[1][1]] = 1;
-        if (in_bounds[(sq + pawn_offsets[1][2]) / 8]) save[sq + pawn_offsets[1][2]] = 1;
-        pawn_captures[1][sq] = save.to_ullong();
+        if (in_bounds.contains((sq + pawn_offsets[1][1]) / 8) && in_bounds.contains((sq + pawn_offsets[1][1]) % 8)) save[sq + pawn_offsets[1][1]] = 1;
+        if (in_bounds.contains((sq + pawn_offsets[1][2]) / 8) && in_bounds.contains((sq + pawn_offsets[1][2]) % 8)) save[sq + pawn_offsets[1][2]] = 1;
+        pawn_captures[sq][1] = save.to_ullong();
         save = 0;
+
 
         for (size_t i = 0; i < 8; i++)
         {
-            if (in_bounds[(sq + sliding_offsets[i]) / 8] && in_bounds[(sq + sliding_offsets[i]) % 8]) save[sq + sliding_offsets[i]] = 1;
+            if (in_bounds.contains((sq + sliding_offsets[i]) / 8) && in_bounds.contains((sq + sliding_offsets[i]) % 8)) save[sq + sliding_offsets[i]] = 1;
         }
 
         king_bit_tables[sq] = save.to_ullong();
+
+        pin_tables[0][sq] = UINT64_MAX;
+
+        for (size_t i = 1; i < 5; i++)
+        {
+            pin_tables[sq][i] = bit_tables[sq][rv_pin_offsets[i].first] | bit_tables[sq][rv_pin_offsets[i].second];
+        }
     }
 }
 
@@ -226,7 +256,7 @@ void Board::load_fen(std::string fen)
 
     for (auto [c, varp] : castle_set) if (castle.find(c) != std::string::npos) *varp = true;
     
-    update_board((Color) !this->turn);
+    update_board((Color) this->turn);
 
     // Update ep
     if (ep[0] != '-') 
@@ -410,8 +440,8 @@ void Board::calc_pins(Color color, char king_sq)
             {
                 if (bit_tables[x->square][start] & (uint64_t) 1 << king_sq) 
                 {
-                    size_t bit_loc = find_set_bit(bit_tables[piece.square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start]);
-                    if (bit_loc) pins[bit_loc] = start;
+                    size_t bit_loc = find_set_bit(bit_tables[x->square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start]);
+                    if (bit_loc) pins[bit_loc] = pin_offsets[start];
                     break;
                 }
             }
@@ -421,10 +451,8 @@ void Board::calc_pins(Color color, char king_sq)
 
 void Board::update_board(Color color)
 {
-    pins.clear();
-    // Clear opposite color pin maps 
-    // Calculate pins for this color by using a function
-    // Check if king is in check (from this method), if so generate stop check squares 
+    // Clear the pins
+    pins.fill(0);
 
     // Find the king (this is the most annoying thing)
     char king_sq;
@@ -448,7 +476,78 @@ void Board::update_board(Color color)
     KC_safe = (king_castle[(int) color * 2] & attacked_sqs) && (king_castle[(int) color * 2 + 1] & attacked_sqs);
     QC_safe = (queen_castle[(int) color * 2] & attacked_sqs) && (queen_castle[(int) color * 2 + 1] & attacked_sqs);
 
-    if (in_check);
+    // Calculate pins 
+    calc_pins(color, king_sq);
+ 
+    // If king is in check, if so generate stop check squares (EVENTUALLY DO THIS IN CALC ATTACKS)
+    if (in_check) 
+    {
+        for (auto x : color == Color::WHITE ? white : black)
+        {
+            switch (x->piece_t)
+            {
+                case PieceType::PAWN:
+                {
+                    if (!(pawn_captures[(bool) color][x->square] & (uint64_t) 1 << king_sq)) break;
+
+                    if (stop_check != 0) 
+                    { 
+                        stop_check = UINT64_MAX; 
+                        break;
+                    }
+
+                    stop_check = 1 << x->square;
+
+                    break;
+                }
+                case PieceType::KNIGHT:
+                {
+                    if (!(knight_bit_tables[x->square] & (uint64_t) 1 << king_sq)) break;
+
+                    if (stop_check != 0) 
+                    { 
+                        stop_check = UINT64_MAX; 
+                        break;
+                    }
+
+                    stop_check = 1 << x->square;
+
+                    break;
+                }
+                case PieceType::KING: break;
+                default: 
+                {
+                    if (stop_check != 0) 
+                    { 
+                        stop_check = UINT64_MAX; 
+                        break;
+                    }
+
+                    size_t start = x->piece_t == PieceType::BISHOP ? 4 : 0;
+                    size_t end = x->piece_t == PieceType::QUEEN ? 8 : start + 4;
+
+                    for (; start < end; start++)
+                    {
+                        uint64_t masked_blockers = bit_tables[x->square][start] & all_pieces.to_ullong();
+                        char closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
+                        if (board[closest]->color == x->color) closest -= sliding_offsets[start];
+                        uint64_t result = bit_tables[x->square][start] & ~bit_tables[closest][start];
+                        if (result & (uint64_t) 1 << king_sq) 
+                        {
+                            stop_check = result | (uint64_t) 1 << x->square;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (stop_check == UINT64_MAX)
+            {
+                stop_check = 0;
+                break;
+            }
+        }
+    }
 }
 
 // Move generation
@@ -458,7 +557,6 @@ void Board::update_board(Color color)
 // If no moves in normal piece table then only king moves and vice versa
 // If no moves at all then it is mate
 // ADD FLAG FOR ATTACKING SQUARES + PIN CHECKING to turn of pin checking for pin generation moves
-// Pinned directions are 0 (nothing) 1 (horizontal) 2 (vertical) 3 (nwse) 4 (nesw)
 
 uint64_t Board::sliding_moves(Piece piece)
 {
@@ -469,7 +567,7 @@ uint64_t Board::sliding_moves(Piece piece)
 
     for (; start < end; start++)
     {
-        // Pin logic
+        // Pin logic, this is a better solution im just too lazy
         // if (pinned_direction[pins[piece.square]][start]) continue;
 
         uint64_t masked_blockers = bit_tables[piece.square][start] & all_pieces.to_ullong();
@@ -478,12 +576,12 @@ uint64_t Board::sliding_moves(Piece piece)
         output |= bit_tables[piece.square][start] & ~bit_tables[closest][start];
     }
 
-    return output & stop_check;
+    return output & stop_check & pin_tables[piece.square][pins[piece.square]];
 }
 
 uint64_t Board::knight_moves(Piece piece)
 {
-    // if (pins[piece.square] != 0) return 0; PIN Logic
+    if (pins[piece.square] != 0) return 0;
     return knight_bit_tables[piece.square] & ~(piece.color == Color::WHITE ? white_pieces.to_ullong() : black_pieces.to_ullong()) & stop_check;
 } 
 
@@ -494,8 +592,8 @@ uint64_t Board::pawn_moves(Piece piece)
     // Use hardcoded logic for 2 squares 
 
     // Do ep using ep_bitmap
-    uint64_t output = (pawn_captures[(bool) piece.color][piece.square] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) || ep_bitmap[(bool) piece.color][ep_file])) || (pawn_forward[(bool) piece.color][piece.square] & ~all_pieces.to_ullong());
-    // output &= pinned_squares[piece.square][pins[(int) piece.color][piece.square]]; PIN LOGIC
+    uint64_t output = (pawn_captures[piece.square][(bool) piece.color] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) || ep_bitmap[(bool) piece.color][ep_file])) || (pawn_forward[piece.square][(bool) piece.square] & ~all_pieces.to_ullong());
+    output &= pin_tables[piece.square][pins[piece.square]]; 
 
     // Check for promotion  
     if (piece.square < 8) output |= 0xFF;

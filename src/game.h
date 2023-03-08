@@ -90,7 +90,7 @@ private:
     uint64_t stop_check;
 
     // What pieces are pinned (square and 1 of the 8 directions, for next turns color)
-    std::unordered_map<char, char> pins; 
+    std::array<char, 64> pins; 
 
     // Info about past captures
     // Bits 0-3 are castle state 0 is white_KC, 3 is black_QC
@@ -143,7 +143,7 @@ private:
     void undo_history();
 
     // Calculate pins
-    void calc_pins(Color color);
+    void calc_pins(Color color, char king_sq);
     // Calculate attacks
     uint64_t all_attacks(Color color, uint64_t no_king);
     // Do all updates that has to be done for a move
