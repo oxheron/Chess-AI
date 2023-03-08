@@ -6,10 +6,11 @@
 #include <array>
 #include <string>
 #include <list> 
-#include <vector>
 #include <memory>
 #include <stack>
 #include <bitset>
+#include <vector>
+#include <unordered_map>
 
 // Holds data for a move, returned in the move piece function
 struct Move
@@ -78,15 +79,18 @@ private:
     size_t moves;
 
     // Info about what king squares are not attacked and are legal moves (for both colors), at least for now done by move gen without pins 
-    std::array<std::bitset<64>, 2> attacked;
+    uint64_t attacked;
 
     // Is the opposing king in check? 
     bool in_check;
+    // Could it castle safely (not through check)
+    bool KC_safe;
+    bool QC_safe;
     // Squares to block or take to stop check
-    std::bitset<64> stop_check;
+    uint64_t stop_check;
 
-    // What pieces are pinned (square and 1 of the 8 directions, for both colors)
-    std::array<std::bitset<64>, 2> pinned_squares;
+    // What pieces are pinned (square and 1 of the 8 directions, for next turns color)
+    std::unordered_map<char, char> pins; 
 
     // Info about past captures
     // Bits 0-3 are castle state 0 is white_KC, 3 is black_QC
@@ -141,7 +145,7 @@ private:
     // Calculate pins
     void calc_pins(Color color);
     // Calculate attacks
-    bool calc_attacks(Color color, char square);
+    uint64_t all_attacks(Color color, uint64_t no_king);
     // Do all updates that has to be done for a move
     void update_board(Color color);
 };

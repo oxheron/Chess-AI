@@ -53,3 +53,11 @@ int bit_scan_rv(uint64_t x) {
    return (int) x;
 }
 #endif
+
+#include <cmath> 
+
+uint64_t find_set_bit(uint64_t bits)
+{
+   if (!(bits && !(bits & (bits-1)))) return 0;
+   return log2(bits) + 1;
+}
