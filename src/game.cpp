@@ -106,10 +106,10 @@ std::unordered_map<char, char> pin_offsets({
 
 // Reverse of pin offsets
 std::unordered_map<char, std::pair<char, char>> rv_pin_offsets({
-    {1, {1, -1}},
-    {2, {8, -8}},
-    {3, {7, -7}},
-    {4, {9, -9}}
+    {1, {0, 1}},
+    {2, {2, 3}},
+    {3, {4, 7}},
+    {4, {5, 6}}
 });
 
 // Pawn starting squares
@@ -179,11 +179,9 @@ void gen_bit_tables()
 
         king_bit_tables[sq] = save.to_ullong();
 
-        pin_tables[0][sq] = UINT64_MAX;
-
         for (size_t i = 1; i < 5; i++)
         {
-            pin_tables[sq][i] = bit_tables[sq][rv_pin_offsets[i].first] | bit_tables[sq][rv_pin_offsets[i].second];
+            pin_tables[i][sq] = bit_tables[sq][rv_pin_offsets[i].first] | bit_tables[sq][rv_pin_offsets[i].second];
         }
     }
 }
@@ -454,10 +452,8 @@ void Board::calc_pins(Color color, char king_sq)
                 if (bit_tables[x->square][start] & (uint64_t) 1 << king_sq) 
                 {
                     // Bit loc thing doesn't work 
-                    size_t bit_loc = find_set_bit(bit_tables[x->square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start]);
-                    if (bit_loc) {
-                        pins[bit_loc] = pin_offsets[start];
-                    }
+                    size_t bit_loc = find_set_bit(bit_tables[x->square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start] & all_pieces.to_ullong()) - 1;
+                    if (bit_loc && board[bit_loc]->color != x->color) pins[bit_loc] = pin_offsets[sliding_offsets[start]];                    
                     break;
                 }
             }
@@ -604,6 +600,19 @@ uint64_t Board::sliding_moves(Piece piece)
         output &= ~bit_tables[closest][start];
     }
 
+    for (size_t i = 0; i < 64; i++)
+    {
+        for (int j = 1; j < 5; j++)
+        {
+            if (i == 35) 
+            {
+                print_bitset((uint64_t) pin_tables[j][i]);
+            }
+        }
+    }
+
+    print_bitset(pin_tables[pins[piece.square]][piece.square]);
+
     return output & stop_check & pin_tables[pins[piece.square]][piece.square];
 }
 
@@ -621,14 +630,16 @@ uint64_t Board::pawn_moves(Piece piece)
 
     // Do ep using ep_bitmap
     uint64_t output = (pawn_captures[piece.square][(bool) piece.color] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) | ep_bitmap[(bool) piece.color][ep_file])) | (pawn_forward[piece.square][(bool) piece.color] & ~all_pieces.to_ullong());
-    output &= pin_tables[pins[piece.square]][piece.square]; 
+
+    // Do proper checking of start squares 
+    if (start_y[(bool) piece.color] == piece.square / 8 && !all_pieces[piece.square + pawn_offsets[(bool) piece.color][0]] && !all_pieces[piece.square + 2 * pawn_offsets[(bool) piece.color][0]]) output |= (uint64_t) 1 << (piece.square + 2 * pawn_offsets[(bool) piece.color][0]);
+
+    // Pins and stop check
+    output &= stop_check & pin_tables[pins[piece.square]][piece.square];
 
     // Check for promotion  
     if (piece.square < 8) output |= 0xFF;
     if (piece.square > 56) output |= 0xFF00000000000000;
 
-    // Do proper checking of start squares 
-    if (start_y[(bool) piece.color] == piece.square / 8 && !all_pieces[piece.square + pawn_offsets[(bool) piece.color][0]] && !all_pieces[piece.square + 2 * pawn_offsets[(bool) piece.color][0]]) output |= (uint64_t) 1 << (piece.square + 2 * pawn_offsets[(bool) piece.color][0]);
-
-    return output & stop_check;
+    return output;
 }
