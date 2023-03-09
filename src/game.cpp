@@ -179,9 +179,11 @@ void gen_bit_tables()
 
         king_bit_tables[sq] = save.to_ullong();
 
+        pin_tables[sq][0] = UINT64_MAX;
+
         for (size_t i = 1; i < 5; i++)
         {
-            pin_tables[i][sq] = bit_tables[sq][rv_pin_offsets[i].first] | bit_tables[sq][rv_pin_offsets[i].second];
+            pin_tables[sq][i] = bit_tables[sq][rv_pin_offsets[i].first] | bit_tables[sq][rv_pin_offsets[i].second];
         }
     }
 }
@@ -600,20 +602,7 @@ uint64_t Board::sliding_moves(Piece piece)
         output &= ~bit_tables[closest][start];
     }
 
-    for (size_t i = 0; i < 64; i++)
-    {
-        for (int j = 1; j < 5; j++)
-        {
-            if (i == 35) 
-            {
-                print_bitset((uint64_t) pin_tables[j][i]);
-            }
-        }
-    }
-
-    print_bitset(pin_tables[pins[piece.square]][piece.square]);
-
-    return output & stop_check & pin_tables[pins[piece.square]][piece.square];
+    return output & stop_check & pin_tables[piece.square][pins[piece.square]];
 }
 
 uint64_t Board::knight_moves(Piece piece)
@@ -635,7 +624,7 @@ uint64_t Board::pawn_moves(Piece piece)
     if (start_y[(bool) piece.color] == piece.square / 8 && !all_pieces[piece.square + pawn_offsets[(bool) piece.color][0]] && !all_pieces[piece.square + 2 * pawn_offsets[(bool) piece.color][0]]) output |= (uint64_t) 1 << (piece.square + 2 * pawn_offsets[(bool) piece.color][0]);
 
     // Pins and stop check
-    output &= stop_check & pin_tables[pins[piece.square]][piece.square];
+    output &= stop_check & pin_tables[piece.square][pins[piece.square]];
 
     // Check for promotion  
     if (piece.square < 8) output |= 0xFF;
