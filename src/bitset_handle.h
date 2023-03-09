@@ -69,7 +69,7 @@ inline uint64_t find_set_bit(uint64_t bits)
 inline void print_bitset(uint64_t x)
 {
    std::bitset<64> pretty = x;
-   for (size_t i = 0; i < 8; i++)
+   for (int i = 7; i >= 0; i--)
    {
       for (size_t y = 0; y < 8; y++)
       {

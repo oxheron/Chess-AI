@@ -114,6 +114,7 @@ std::set<char> in_bounds({
 // Generate all of the maps used
 void gen_bit_tables()
 {
+    // Do proper boundschecking
     for (size_t sq = 0; sq < 64; sq++)
     {
         char x = sq % 8;
@@ -163,10 +164,10 @@ void gen_bit_tables()
         pawn_captures[sq][1] = save.to_ullong();
         save = 0;
 
-
         for (size_t i = 0; i < 8; i++)
         {
-            if (in_bounds.contains((sq + sliding_offsets[i]) / 8) && in_bounds.contains((sq + sliding_offsets[i]) % 8)) save[sq + sliding_offsets[i]] = 1;
+            std::cout << (in_bounds.contains((sq + sliding_offsets[i]) / 8) && in_bounds.contains((sq + sliding_offsets[i]) % 8) && sq + sliding_offsets[i] > 0) << std::endl;
+            if () save[sq + sliding_offsets[i]] = 1;
         }
 
         king_bit_tables[sq] = save.to_ullong();
@@ -217,6 +218,7 @@ void Board::load_fen(std::string fen)
                     board[sq]->piece_t = ctop_t[std::tolower(fen[fen_idx])];
                     board[sq]->square = sq;
                     board[sq]->color = Color::WHITE;
+                    white_pieces[sq] = 1;
                     white.push_back(board[sq]);
                 }
                 else
@@ -225,6 +227,7 @@ void Board::load_fen(std::string fen)
                     board[sq]->piece_t = ctop_t[fen[fen_idx]];
                     board[sq]->square = sq;
                     board[sq]->color = Color::BLACK;
+                    black_pieces[sq] = 1;
                     black.push_back(board[sq]);
                 }
             }
@@ -235,6 +238,8 @@ void Board::load_fen(std::string fen)
         }
         fen = next;
     }
+
+    all_pieces = white_pieces | black_pieces;
 
     split_idx = turn.find(' ', 0);
     std::string castle = turn.substr(split_idx + 1);
@@ -256,7 +261,7 @@ void Board::load_fen(std::string fen)
 
     for (auto [c, varp] : castle_set) if (castle.find(c) != std::string::npos) *varp = true;
     
-    update_board((Color) this->turn);
+    update_board((Color) !this->turn);
 
     // Update ep
     if (ep[0] != '-') 
@@ -301,7 +306,7 @@ std::vector<Move> Board::generate_moves(Color color)
         }
         else if (piece->piece_t == PieceType::KING) 
         {
-            return_v.push_back(Move{*piece, attacked});
+            return_v.push_back(Move{*piece, attacked & ~(color == Color::WHITE ? white_pieces.to_ullong() : black_pieces.to_ullong())});
         }
         else
         {
@@ -390,7 +395,7 @@ uint64_t Board::all_attacks(Color color, uint64_t no_king)
         {
             case PieceType::PAWN:
             {
-                all_attacked |= pawn_captures[(bool) color][x->square];
+                all_attacked |= pawn_captures[x->square][(bool) color];
                 break;
             }
             case PieceType::KNIGHT:
@@ -401,6 +406,7 @@ uint64_t Board::all_attacks(Color color, uint64_t no_king)
             case PieceType::KING: 
             {
                 all_attacked |= king_bit_tables[x->square];
+                print_bitset(king_bit_tables[x->square]);
                 break;
             }
             default: 
@@ -412,12 +418,16 @@ uint64_t Board::all_attacks(Color color, uint64_t no_king)
                 {
                     uint64_t masked_blockers = bit_tables[x->square][start] & no_king;
                     char closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
-                    if (board[closest]->color == x->color) closest -= sliding_offsets[start];
+                    // std::cout << "sliding piece" << std::endl;
+                    // print_bitset(bit_tables[x->square][start] & ~bit_tables[closest][start]);
                     all_attacked |= bit_tables[x->square][start] & ~bit_tables[closest][start];
                 }
             }
         }
     }
+
+    std::cout << "all_attacked" << std::endl;
+    print_bitset(all_attacked);
 
     return all_attacked;
 }

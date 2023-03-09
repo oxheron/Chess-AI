@@ -15,8 +15,12 @@ int main(int argc, char** argv)
     board.load_fen(fen);
     auto moves = board.generate_moves((Color) board.get_turn());
 
-    for (auto x : moves)
-    {
-        print_bitset(x.bitboard);
-    }
+    std::cout << "attacked" << std::endl;
+    print_bitset(board.attacked);
+
+    // for (auto x : moves)
+    // {
+    //     std::cout << (int) x.start_pos << std::endl;
+    //     print_bitset(x.bitboard);
+    // }
 }

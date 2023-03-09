@@ -60,7 +60,7 @@ public:
     std::bitset<64> white_pieces;
     std::bitset<64> black_pieces;
     std::bitset<64> all_pieces;
-private:
+public:
     // Lists of pieces
     std::list<std::shared_ptr<Piece>> white;
     std::list<std::shared_ptr<Piece>> black;
@@ -130,7 +130,6 @@ public:
 
     // Get turn for generating moves
     bool get_turn() { return this->turn; }
-
 private:
     // Generate all legal rook moves from a piece, puts result in moves
     uint64_t sliding_moves(Piece piece);
