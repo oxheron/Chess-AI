@@ -453,8 +453,11 @@ void Board::calc_pins(Color color, char king_sq)
             {
                 if (bit_tables[x->square][start] & (uint64_t) 1 << king_sq) 
                 {
+                    // Bit loc thing doesn't work 
                     size_t bit_loc = find_set_bit(bit_tables[x->square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start]);
-                    if (bit_loc) pins[bit_loc] = pin_offsets[start];
+                    if (bit_loc) {
+                        pins[bit_loc] = pin_offsets[start];
+                    }
                     break;
                 }
             }
