@@ -591,9 +591,6 @@ uint64_t Board::sliding_moves(Piece piece)
 
     for (; start < end; start++)
     {
-        // Pin logic, this is a better solution im just too lazy
-        // if (pinned_direction[pins[piece.square]][start]) continue;
-
         output |= bit_tables[piece.square][start];
         uint64_t masked_blockers = bit_tables[piece.square][start] & all_pieces.to_ullong();
         if (masked_blockers == 0) continue;
