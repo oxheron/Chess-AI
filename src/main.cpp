@@ -9,18 +9,16 @@
 int main(int argc, char** argv)
 {
     std::cout << "Chess AI" << std::endl;
-    std::string fen = argc == 2 ? argv[1] : "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    // std::string fen = argc == 2 ? argv[1] : "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    std::string fen = "kr6/4R3/8/8/8/8/8/K7 w - - 0 1";
     Disp disp;
     Board board;
     board.load_fen(fen);
     auto moves = board.generate_moves((Color) board.get_turn());
 
-    std::cout << "attacked" << std::endl;
-    print_bitset(board.attacked);
-
-    // for (auto x : moves)
-    // {
-    //     std::cout << (int) x.start_pos << std::endl;
-    //     print_bitset(x.bitboard);
-    // }
+    for (auto x : moves)
+    {
+        std::cout << (int) x.start_pos << std::endl;
+        print_bitset(x.bitboard);
+    }
 }

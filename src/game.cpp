@@ -7,6 +7,12 @@
 #include <set>
 #include <cctype>
 
+// Function for finding remainder when value is negative
+int remainder(int a, int b)
+{
+    return (a % b + b) % b;
+}
+
 // Convert characters to piecetypes
 std::unordered_map<char, PieceType> ctop_t({
     {'k', PieceType::KING},
@@ -62,6 +68,11 @@ std::array<char, 8> sliding_offsets({
     -1, 1, 8, -8, 7, -9, 9, -7
 });
 
+// List of base ten sliding offsets, used for king bit table generation
+std::array<char, 8> b10_sliding_offsets({
+    -1, 1, 10, -10, 9, -11, 11, -9
+});
+
 // List of offsets for the knight, in x,y form
 std::array<std::pair<char, char>, 8> knight_offsets({{
     {-1, 2},
@@ -114,8 +125,8 @@ std::set<char> in_bounds({
 // Generate all of the maps used
 void gen_bit_tables()
 {
-    // Do proper boundschecking
-    for (size_t sq = 0; sq < 64; sq++)
+    // Do proper boundschecking using base 10
+    for (int sq = 0; sq < 64; sq++)
     {
         char x = sq % 8;
         char y = sq / 8;
@@ -143,7 +154,7 @@ void gen_bit_tables()
         std::bitset<64> save = 0;
         for (auto off : knight_offsets)
         {
-            if (in_bounds.contains(x + off.first) || in_bounds.contains(y + off.second)) save[x + off.first + (y + off.second) * 8] = 1;
+            if (remainder(x + 1 + remainder(off.first, 10), 10) != 0 && remainder(x + 1 + remainder(off.first, 10), 10) != 9 && (sq + off.first + off.second * 8) < 64 && (sq + off.first + off.second * 8) >= 0) save[x + off.first + (y + off.second) * 8] = 1;
         }
 
         knight_bit_tables[sq] = save.to_ullong();
@@ -153,21 +164,21 @@ void gen_bit_tables()
         pawn_forward[sq][0] = save.to_ullong();
         save = 0;
         save[sq + pawn_offsets[1][0]] = 1;
-        pawn_forward[sq][0] = save.to_ullong();
+        pawn_forward[sq][1] = save.to_ullong();
         save = 0;
-        if (in_bounds.contains((sq + pawn_offsets[0][1]) / 8) && in_bounds.contains((sq + pawn_offsets[0][1]) % 8)) save[sq + pawn_offsets[0][1]] = 1;
-        if (in_bounds.contains((sq + pawn_offsets[0][2]) / 8) && in_bounds.contains((sq + pawn_offsets[0][2]) % 8)) save[sq + pawn_offsets[0][2]] = 1;
+        if (remainder(x + 1 + remainder(pawn_offsets[0][1], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[0][1], 10), 10) != 9) save[sq + pawn_offsets[0][1]] = 1;
+        if (remainder(x + 1 + remainder(pawn_offsets[0][2], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[0][2], 10), 10) != 9) save[sq + pawn_offsets[0][2]] = 1;
         pawn_captures[sq][0] = save.to_ullong();
         save = 0;
-        if (in_bounds.contains((sq + pawn_offsets[1][1]) / 8) && in_bounds.contains((sq + pawn_offsets[1][1]) % 8)) save[sq + pawn_offsets[1][1]] = 1;
-        if (in_bounds.contains((sq + pawn_offsets[1][2]) / 8) && in_bounds.contains((sq + pawn_offsets[1][2]) % 8)) save[sq + pawn_offsets[1][2]] = 1;
+        if (remainder(x + 1 + remainder(pawn_offsets[1][1], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[1][1], 10), 10) != 9) save[sq + pawn_offsets[1][1]] = 1;
+        if (remainder(x + 1 + remainder(pawn_offsets[1][2], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[1][2], 10), 10) != 9) save[sq + pawn_offsets[1][2]] = 1;
         pawn_captures[sq][1] = save.to_ullong();
         save = 0;
 
+
         for (size_t i = 0; i < 8; i++)
         {
-            std::cout << (in_bounds.contains((sq + sliding_offsets[i]) / 8) && in_bounds.contains((sq + sliding_offsets[i]) % 8) && sq + sliding_offsets[i] > 0) << std::endl;
-            if () save[sq + sliding_offsets[i]] = 1;
+            if (remainder(x + 1 + remainder(b10_sliding_offsets[i], 10), 10) != 0 && remainder(x + 1 + remainder(b10_sliding_offsets[i], 10), 10) != 9 && (sq + sliding_offsets[i]) < 64 && (sq + sliding_offsets[i]) >= 0) save[sq + sliding_offsets[i]] = 1;
         }
 
         king_bit_tables[sq] = save.to_ullong();
@@ -406,7 +417,6 @@ uint64_t Board::all_attacks(Color color, uint64_t no_king)
             case PieceType::KING: 
             {
                 all_attacked |= king_bit_tables[x->square];
-                print_bitset(king_bit_tables[x->square]);
                 break;
             }
             default: 
@@ -425,9 +435,6 @@ uint64_t Board::all_attacks(Color color, uint64_t no_king)
             }
         }
     }
-
-    std::cout << "all_attacked" << std::endl;
-    print_bitset(all_attacked);
 
     return all_attacked;
 }
@@ -477,7 +484,7 @@ void Board::update_board(Color color)
     
     // Calculate safe squares around the king (using generate attacks method but xor all pieces with king square (so the king doesnt exist in terms of seeing if the square is attacked)
     uint64_t attacked_sqs = all_attacks(color, all_pieces.to_ullong() ^ ((uint64_t) 1 << king_sq));
-    attacked = attacked_sqs & king_bit_tables[king_sq];
+    attacked = ~attacked_sqs & king_bit_tables[king_sq];
 
     // See if the king is in check
     in_check = attacked_sqs & (uint64_t) 1 << king_sq;
@@ -492,6 +499,7 @@ void Board::update_board(Color color)
     // If king is in check, if so generate stop check squares (EVENTUALLY DO THIS IN CALC ATTACKS)
     if (in_check) 
     {
+        stop_check = 0;
         for (auto x : color == Color::WHITE ? white : black)
         {
             switch (x->piece_t)
@@ -558,6 +566,10 @@ void Board::update_board(Color color)
             }
         }
     }
+    else 
+    {
+        stop_check = UINT64_MAX;
+    }
 }
 
 // Move generation
@@ -581,9 +593,14 @@ uint64_t Board::sliding_moves(Piece piece)
         // if (pinned_direction[pins[piece.square]][start]) continue;
 
         uint64_t masked_blockers = bit_tables[piece.square][start] & all_pieces.to_ullong();
-        char closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
-        if (board[closest]->color == piece.color) closest -= sliding_offsets[start];
-        output |= bit_tables[piece.square][start] & ~bit_tables[closest][start];
+        int closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
+        if (board[closest]->color == piece.color && closest != 0) closest -= sliding_offsets[start];
+        if (closest == 0) { output |= bit_tables[piece.square][start]; } 
+        else output |= bit_tables[piece.square][start] & ~bit_tables[closest][start];
+
+        // Thse tables dont work too
+        std::cout << bit_tables[piece.square][start] << std::endl;
+
     }
 
     return output & stop_check & pin_tables[piece.square][pins[piece.square]];
@@ -602,8 +619,8 @@ uint64_t Board::pawn_moves(Piece piece)
     // Use hardcoded logic for 2 squares 
 
     // Do ep using ep_bitmap
-    uint64_t output = (pawn_captures[piece.square][(bool) piece.color] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) || ep_bitmap[(bool) piece.color][ep_file])) || (pawn_forward[piece.square][(bool) piece.square] & ~all_pieces.to_ullong());
-    output &= pin_tables[piece.square][pins[piece.square]]; 
+    uint64_t output = (pawn_captures[piece.square][(bool) piece.color] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) | ep_bitmap[(bool) piece.color][ep_file])) | (pawn_forward[piece.square][(bool) piece.color] & ~all_pieces.to_ullong());
+    output &= pin_tables[pins[piece.square]][piece.square]; 
 
     // Check for promotion  
     if (piece.square < 8) output |= 0xFF;
