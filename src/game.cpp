@@ -426,6 +426,11 @@ uint64_t Board::all_attacks(Color color, uint64_t no_king)
 
                 for (; start < end; start++)
                 {
+                    uint64_t masked_blockers = bit_tables[piece.square][start] & all_pieces.to_ullong();
+        int closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
+        if (board[closest]->color == piece.color && closest != 0) closest -= sliding_offsets[start];
+        if (closest == 0) { output |= bit_tables[piece.square][start]; } 
+        else output |= bit_tables[piece.square][start] & ~bit_tables[closest][start];
                     uint64_t masked_blockers = bit_tables[x->square][start] & no_king;
                     char closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
                     // std::cout << "sliding piece" << std::endl;
@@ -550,6 +555,12 @@ void Board::update_board(Color color)
                         char closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
                         if (board[closest]->color == x->color) closest -= sliding_offsets[start];
                         uint64_t result = bit_tables[x->square][start] & ~bit_tables[closest][start];
+
+                        uint64_t masked_blockers = bit_tables[piece.square][start] & all_pieces.to_ullong();
+        int closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
+        if (board[closest]->color == piece.color && closest != 0) closest -= sliding_offsets[start];
+        if (closest == 0) { output |= bit_tables[piece.square][start]; } 
+        else output |= bit_tables[piece.square][start] & ~bit_tables[closest][start];
                         if (result & (uint64_t) 1 << king_sq) 
                         {
                             stop_check = result | (uint64_t) 1 << x->square;
