@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #ifdef USE_X86INTRINSICS
 #include <intrin.h>
 #pragma intrinsic(_BitScanForward64)

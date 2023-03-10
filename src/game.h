@@ -1,6 +1,7 @@
 #pragma once
 
 #include "piece.h"
+#include "bitset_handle.h"
 
 // std
 #include <array>
@@ -12,41 +13,82 @@
 #include <vector>
 #include <unordered_map>
 
-// Holds data for a move, returned in the move piece function
-struct Move
+// Holds data for a bitboard of moves for a piece, returned in the generate moves function
+struct Moves
 {
     char start_pos;
     uint64_t bitboard;
-    PieceType promote;
 
-    inline Move()
+    // Special data, such as rook square for castling or what piece to promote to
+    char special;
+
+    inline Moves()
     {
         start_pos = 0;
         bitboard  = 0;
-        promote = PieceType::EMPTY;
+        special = 0;
     }
 
-    inline Move(char start_pos, uint64_t bitboard)
+    inline Moves(char start_pos, uint64_t bitboard)
     {
         this->start_pos = start_pos;
         this->bitboard = bitboard;
-        this->promote = PieceType::EMPTY;
+        this->special = 0;
     }
 
-    inline Move(Piece start_pos, uint64_t bitboard)
+    inline Moves(Piece start_pos, uint64_t bitboard)
     {
         this->start_pos = start_pos.square;
         this->bitboard = bitboard;
-        this->promote = PieceType::EMPTY;
+        this->special = 0;
+    }
+
+    inline Moves(char start_pos, uint64_t bitboard, char promote)
+    {
+        this->start_pos = start_pos;
+        this->bitboard = bitboard;
+        this->special = promote;
     }
     
-    inline Move(Piece start_pos, uint64_t bitboard, PieceType promote)
+    inline Moves(Piece start_pos, uint64_t bitboard, char promote)
     {
         this->start_pos = start_pos.square;
         this->bitboard = bitboard;
-        this->promote = promote;
+        this->special = promote;
     }
 };
+
+// Holds data for a move, the input of move and unmove in the board class
+struct Move
+{
+    char start_pos;
+    char end_pos;
+    // Holds special data such as promotion or castling
+    char special;
+};
+
+inline void extract_moves(Moves moves, std::vector<Move>& output)
+{
+    // Use recursion of this function
+    // Find forward set bit, push back a move with the forward set bit and the rest of the piece info, call this function again with the same std::vector and a move where the bitboard is anded with a ~ 1 << fsb
+
+    if (moves.bitboard == 0) return;    
+    int fsb = bit_scan_fw(moves.bitboard);
+    output.emplace_back(Move{moves.start_pos, (char) fsb, moves.special});
+    extract_moves(Moves{moves.start_pos, moves.bitboard & ~(uint64_t) 1 << fsb, moves.special}, output);
+    return;
+}
+
+// Turns a bitboard of grouped moves for a piece into individual moves
+inline std::vector<Move> extract_moves(Moves moves)
+{
+    std::vector<Move> output;
+
+    // Use recursion and passing a std::vector forward
+    extract_moves(moves, output);
+
+    return output;
+}
 
 // The chess board, has functions about making moves and loading fen strings
 class Board
@@ -120,13 +162,13 @@ public:
     void print_pieces();
 
     // The most important function, generates all of the possible moves for the ai to choose from
-    std::vector<Move> generate_moves(Color color);
+    std::vector<Moves> generate_moves(Color color);
 
     // A move
     void move(Move move);
 
     // Do a move backwards
-    void unmove(Move move, bool regen);
+    void unmove(Move move);
 
     // Get turn for generating moves
     bool get_turn() { return this->turn; }

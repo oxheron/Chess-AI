@@ -278,76 +278,6 @@ void Board::load_fen(std::string fen)
     }
 }
 
-std::vector<Move> Board::generate_moves(Color color)
-{
-    std::vector<Move> return_v;
-    // Go through every piece of the color and generate moves for it
-    for (auto piece : (color == Color::WHITE ? white : black))
-    {
-        if (piece->piece_t == PieceType::PAWN) 
-        {
-            uint64_t move_bmap = pawn_moves(*piece);
-            if ((move_bmap & 0xFF) == 0xFF)
-            {
-                return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::KNIGHT});
-                return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::BISHOP});
-                return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::ROOK});
-                return_v.push_back(Move{*piece, move_bmap & ~(uint64_t)0xFF, PieceType::QUEEN});
-            }
-            else if ((move_bmap & 0xFF00000000000000) == 0xFF00000000000000)
-            {
-                return_v.push_back(Move{*piece, move_bmap & ~0xFF00000000000000, PieceType::KNIGHT});
-                return_v.push_back(Move{*piece, move_bmap & ~0xFF00000000000000, PieceType::BISHOP});
-                return_v.push_back(Move{*piece, move_bmap & ~0xFF00000000000000, PieceType::ROOK});
-                return_v.push_back(Move{*piece, move_bmap & ~0xFF00000000000000, PieceType::QUEEN});
-            }
-            else
-            {
-                return_v.push_back(Move{*piece, move_bmap});
-            }
-
-        }
-        else if (piece->piece_t == PieceType::KNIGHT) 
-        {
-            return_v.push_back(Move{*piece, knight_moves(*piece)});
-        }
-        else if (piece->piece_t == PieceType::KING) 
-        {
-            return_v.push_back(Move{*piece, attacked & ~(color == Color::WHITE ? white_pieces.to_ullong() : black_pieces.to_ullong())});
-        }
-        else
-        {
-            return_v.push_back(Move{*piece, sliding_moves(*piece)});
-        }
-    }
-
-    // Castling
-    // if (color == Color::WHITE)
-    // {
-    //     if (white_KC)
-    //     {
-    //         if (!in_check && !attacked[1][5] && !attacked[1][6] && board[5]->color == Color::NONE && board[6]->color == Color::NONE) return_v.push_back({4, 6});
-    //     }   
-    //     if (white_QC)
-    //     {
-    //         if (!in_check && !attacked[1][2] && !attacked[1][3] && board[2]->color == Color::NONE && board[3]->color == Color::NONE) return_v.push_back({4, 2});
-    //     }
-    // }
-    // else
-    // {
-    //     if (black_KC)
-    //     {
-    //         if (!in_check && !attacked[0][61] && !attacked[0][62] && board[61]->color == Color::NONE && board[62]->color == Color::NONE) return_v.push_back({60, 62});
-    //     }   
-    //     if (black_QC)
-    //     {
-    //         if (!in_check && !attacked[0][58] && !attacked[0][59] && board[58]->color == Color::NONE && board[59]->color == Color::NONE) return_v.push_back({60, 58});
-    //     }
-    // }
-
-    return return_v;
-}
-
 void Board::print_pieces()
 {
     std::cout << "white" << std::endl;
@@ -389,6 +319,284 @@ void Board::undo_history()
     capture_type = (history & (short) 0b01110000000) >> 7;
     fifty_mover = (history & (short) 0b1111110000000000) >> 10;
     game_history.pop();
+}
+
+void Board::move(Move move)
+{
+    update_history();
+
+    fifty_mover++;
+
+    Piece start_p = *board[move.start_pos];
+    if (start_p.color != (Color) turn) return;
+
+    // Do capture
+    if (board[move.end_pos]->color == opposite_color[start_p.color]) 
+    {
+        capture_type = (char) board[move.end_pos]->piece_t;
+        (((bool) board[move.end_pos]->color) ? white : black).remove(board[move.end_pos]);
+        board[move.end_pos]->color = Color::NONE;
+        board[move.end_pos]->piece_t = PieceType::EMPTY;
+
+        // Update bitboard
+        if (start_p.color == Color::WHITE) 
+        {
+            black_pieces &= ~(uint64_t) 1 << move.end_pos;
+        }
+        else
+        {
+            white_pieces &= ~(uint64_t) 1 << move.end_pos;
+        }
+
+        fifty_mover = 0;
+    }
+
+    // Do the move on the board
+    board[move.end_pos]->square = move.start_pos;
+    board[move.start_pos]->square = move.end_pos;
+    board[move.start_pos].swap(board[move.end_pos]);
+
+    // Update bitboard
+    if (start_p.color == Color::WHITE) 
+    {
+        white_pieces &= ~(uint64_t) 1 << move.start_pos;
+        white_pieces |= (uint64_t) 1 << move.end_pos;
+    }
+    else
+    {
+        black_pieces &= ~(uint64_t) 1 << move.start_pos;
+        black_pieces |= (uint64_t) 1 << move.end_pos;
+    }
+
+    // Check if move is a castle or promote 
+    if (move.special == INT8_MAX)
+    {
+        // Do castling 
+        // Move rook 
+        // KC
+        if (move.start_pos - move.end_pos < 0) 
+        {
+            board[7 + ((int) !(bool) start_p.color) * 56]->square = 5 + ((int) !(bool) start_p.color) * 56;
+            board[5 + ((int) !(bool) start_p.color) * 56]->square = 7 + ((int) !(bool) start_p.color) * 56;
+            board[7 + ((int) !(bool) start_p.color) * 56].swap(board[5 + ((int) !(bool) start_p.color) * 56]);
+
+            if (start_p.color == Color::WHITE) 
+            {
+                white_pieces &= ~(uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56);
+                white_pieces |= (uint64_t) 1 << (5 + ((int) !(bool) start_p.color) * 56);
+            }
+            else
+            {
+                black_pieces &= ~(uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56);
+                black_pieces |= (uint64_t) 1 << (5 + ((int) !(bool) start_p.color) * 56);
+            }
+        }
+        // QC
+        else 
+        {
+            board[3 + ((int) !(bool) start_p.color) * 56]->square = ((int) !(bool) start_p.color) * 56;
+            board[((int) !(bool) start_p.color) * 56]->square = 3 + ((int) !(bool) start_p.color) * 56;
+            board[3 + ((int) !(bool) start_p.color) * 56].swap(board[((int) !(bool) start_p.color) * 56]);
+
+            if (start_p.color == Color::WHITE) 
+            {
+                white_pieces &= ~(uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56);
+                white_pieces |= (uint64_t) 1 << (((int) !(bool) start_p.color) * 56);
+            }
+            else
+            {
+                black_pieces &= ~(uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56);
+                black_pieces |= (uint64_t) 1 << (((int) !(bool) start_p.color) * 56);
+            }
+        }
+
+        // Clear castling
+        if (start_p.color == Color::WHITE)
+        {
+            white_KC = 0;
+            white_QC = 0;
+        }
+        else
+        {
+            black_KC = 0;
+            black_QC = 0;
+        }
+    }
+    else if (move.special != 0) board[move.start_pos]->piece_t = (PieceType) move.special;
+
+    if (start_p.piece_t == PieceType::ROOK && (start_p.square % 8) == 0) 
+    {
+        if (start_p.color == Color::WHITE) white_QC = 0;
+        else black_QC = 0;
+    }
+
+    if (start_p.piece_t == PieceType::ROOK && (start_p.square % 8) == 7)
+    {
+        if (start_p.color == Color::WHITE) white_KC = 0;
+        else white_QC = 0;
+    }
+
+    // Check if move is EP
+    if (start_p.piece_t == PieceType::PAWN && board[move.start_pos]->piece_t == PieceType::EMPTY && (move.start_pos - move.end_pos) % 8 != 0)
+    {
+        // Do capture if so
+        capture_type = (char) PieceType::PAWN;
+        for (auto p : (((bool) board[move.end_pos]->color) ? white : black))
+        {
+            if (p->square == move.end_pos - ((bool) start_p.color ? -8 : 8)) (((bool) board[move.end_pos]->color) ? white : black).remove(p);
+        }
+        board[move.end_pos - ((bool) start_p.color ? -8 : 8)]->color = Color::NONE;
+        board[move.end_pos - ((bool) start_p.color ? -8 : 8)]->piece_t = PieceType::EMPTY;
+
+        // Update bitboard
+        if (start_p.color == Color::WHITE) 
+        {
+            black_pieces &= ~(uint64_t) 1 << (move.end_pos - ((bool) start_p.color ? -8 : 8));
+        }
+        else
+        {
+            white_pieces &= ~(uint64_t) 1 << (move.end_pos - ((bool) start_p.color ? -8 : 8));
+        }
+
+        fifty_mover = 0;
+    } 
+
+    all_pieces = white_pieces | black_pieces;
+
+    update_board(start_p.color);
+
+    // Wrap up stuff
+    ep_file = 0;
+    turn = !turn;
+    if (board[move.end_pos]->piece_t == PieceType::PAWN)
+    {
+        fifty_mover = 0;
+        if (abs(move.start_pos - move.end_pos) == 16) 
+        {
+            ep_file = move.start_pos % 8;
+            capture_type = 0b111;
+        }
+    } 
+
+    if (turn) this->moves++;
+}
+
+void Board::unmove(Move move)
+{
+    // Update some flags 
+    turn = !turn;
+    if (turn) this->moves--;
+
+    // Undo castling
+    if (move.special == )
+    {
+        // Move rook 
+        // KC
+        if (move.start_pos - move.end_pos < 0) 
+        {
+            board[7 + ((int) !(bool) start_p.color) * 56]->square = 5 + ((int) !(bool) start_p.color) * 56;
+            board[5 + ((int) !(bool) start_p.color) * 56]->square = 7 + ((int) !(bool) start_p.color) * 56;
+            board[7 + ((int) !(bool) start_p.color) * 56].swap(board[5 + ((int) !(bool) start_p.color) * 56]);
+        }
+        // QC
+        else 
+        {
+            board[3 + ((int) !(bool) start_p.color) * 56]->square =((int) !(bool) start_p.color) * 56;
+            board[((int) !(bool) start_p.color) * 56]->square = 3 + ((int) !(bool) start_p.color) * 56;
+            board[3 + ((int) !(bool) start_p.color) * 56].swap(board[((int) !(bool) start_p.color) * 56]);
+        }
+    }
+
+    // Check if move is promote 
+    else if (move.special != 0) board[move.end_pos]->piece_t = PieceType::PAWN;
+
+    // Undo the move on board
+    Piece start_p = *board[move.end_pos];
+
+    board[move.end_pos]->square = move.start_pos;
+    board[move.start_pos]->square = move.end_pos;
+    board[move.start_pos].swap(board[move.end_pos]);
+
+    // Undo captures
+    if (capture_type != 0b000 && capture_type != 0b111) 
+    {
+        // Ep capture
+        // Check ep square and make sure that the pawn is moving into that file
+        if (((game_history.top() & (short) 0b01110000000) >> 7) == 0b111 && move.end_pos % 8 == ((game_history.top() & (short) 0b01110000) >> 4))
+        {
+            char past_epfile = ((game_history.top() & (short) 0b01110000) >> 4);
+            board[move.start_pos / 8 + past_epfile]->color = opposite_color[board[move.start_pos]->color];
+            board[move.start_pos / 8 + past_epfile]->piece_t = (PieceType) capture_type;
+            ((board[move.start_pos / 8 + past_epfile]->color == Color::WHITE) ? white : black).push_back(board[move.start_pos / 8 + past_epfile]);
+        }
+        else 
+        {
+            board[move.end_pos]->color = opposite_color[board[move.start_pos]->color];
+            board[move.end_pos]->piece_t = (PieceType) capture_type;
+            ((board[move.end_pos]->color == Color::WHITE) ? white : black).push_back(board[move.end_pos]);
+        }   
+    }
+
+    // Update attack squares, pinned pieces, and check
+    if (regen) update_board(opposite_color[start_p.color]);
+
+    undo_history();
+}
+
+std::vector<Moves> Board::generate_moves(Color color)
+{
+    std::vector<Moves> return_v;
+    // Go through every piece of the color and generate moves for it
+    for (auto piece : (color == Color::WHITE ? white : black))
+    {
+        if (piece->piece_t == PieceType::PAWN) 
+        {
+            uint64_t move_bmap = pawn_moves(*piece);
+
+            if ((move_bmap & 0xFF) == 0xFF)
+            {
+                return_v.push_back(Moves{*piece, move_bmap & ~(uint64_t)0xFF, (char) PieceType::KNIGHT});
+                return_v.push_back(Moves{*piece, move_bmap & ~(uint64_t)0xFF, (char) PieceType::BISHOP});
+                return_v.push_back(Moves{*piece, move_bmap & ~(uint64_t)0xFF, (char) PieceType::ROOK});
+                return_v.push_back(Moves{*piece, move_bmap & ~(uint64_t)0xFF, (char) PieceType::QUEEN});
+            }
+            else if ((move_bmap & 0xFF00000000000000) == 0xFF00000000000000)
+            {
+                return_v.push_back(Moves{*piece, move_bmap & ~0xFF00000000000000, (char) PieceType::KNIGHT});
+                return_v.push_back(Moves{*piece, move_bmap & ~0xFF00000000000000, (char) PieceType::BISHOP});
+                return_v.push_back(Moves{*piece, move_bmap & ~0xFF00000000000000, (char) PieceType::ROOK});
+                return_v.push_back(Moves{*piece, move_bmap & ~0xFF00000000000000, (char) PieceType::QUEEN});
+            }
+            else
+            {
+                return_v.push_back(Moves{*piece, move_bmap});
+            }
+
+        }
+        else if (piece->piece_t == PieceType::KNIGHT) 
+        {
+            return_v.push_back(Moves{*piece, knight_moves(*piece)});
+        }
+        else if (piece->piece_t == PieceType::KING) 
+        {
+            // Castling
+            if (!in_check) 
+            {
+                if (color == Color::WHITE && white_KC && KC_safe && (~all_pieces.to_ullong() & (uint64_t) 0x60) == 0x60) return_v.push_back(Moves{*piece, (uint64_t) 1 << 6, INT8_MAX});
+                else if (color == Color::WHITE && white_QC && QC_safe && (~all_pieces.to_ullong() & (uint64_t) 0xC) == 0xC) return_v.push_back(Moves{*piece, (uint64_t) 1 << 2, INT8_MAX});
+                else if (color == Color::BLACK && black_KC && KC_safe && (~all_pieces.to_ullong() & (uint64_t) 0x5FFFFFF990769000) == 0x5FFFFFF990769000) return_v.push_back(Moves{*piece, (uint64_t) 1 << 62, INT8_MAX});
+                else if (color == Color::BLACK && black_KC && KC_safe && (~all_pieces.to_ullong() & (uint64_t) 0xC0000005C14C400) == 0xC0000005C14C400) return_v.push_back(Moves{*piece, (uint64_t) 1 << 58, INT8_MAX});
+            }
+
+            return_v.push_back(Moves{*piece, attacked & ~(color == Color::WHITE ? white_pieces.to_ullong() : black_pieces.to_ullong())});
+        }
+        else
+        {
+            return_v.push_back(Moves{*piece, sliding_moves(*piece)});
+        }
+    }    
+
+    return return_v;
 }
 
 // Generates a bitmap of every square the pieces attack (if the opposing king didn't exist)
@@ -624,8 +832,8 @@ uint64_t Board::pawn_moves(Piece piece)
     output &= stop_check & pin_tables[piece.square][pins[piece.square]];
 
     // Check for promotion  
-    if (piece.square < 8) output |= 0xFF;
-    if (piece.square > 56) output |= 0xFF00000000000000;
+    if (piece.color == Color::BLACK && piece.square < 16) output |= 0xFF00000000000000;
+    if (piece.color == Color::WHITE && piece.square > 47) output |= 0xFF;
 
     return output;
 }
