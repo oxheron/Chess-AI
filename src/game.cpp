@@ -488,7 +488,7 @@ void Board::unmove(Move move)
     if (turn) this->moves--;
 
     // Undo castling
-    if (move.special == )
+    if (move.special == UINT8_MAX)
     {
         // Move rook 
         // KC
@@ -506,7 +506,6 @@ void Board::unmove(Move move)
             board[3 + ((int) !(bool) start_p.color) * 56].swap(board[((int) !(bool) start_p.color) * 56]);
         }
     }
-
     // Check if move is promote 
     else if (move.special != 0) board[move.end_pos]->piece_t = PieceType::PAWN;
 
@@ -516,6 +515,18 @@ void Board::unmove(Move move)
     board[move.end_pos]->square = move.start_pos;
     board[move.start_pos]->square = move.end_pos;
     board[move.start_pos].swap(board[move.end_pos]);
+
+    // Update bitboard
+    if (start_p.color == Color::WHITE) 
+    {
+        white_pieces &= ~(uint64_t) 1 << move.end_pos;
+        white_pieces |= (uint64_t) 1 << move.start_pos;
+    }
+    else
+    {
+        black_pieces &= ~(uint64_t) 1 << move.end_pos;
+        black_pieces |= (uint64_t) 1 << move.start_pos;
+    }
 
     // Undo captures
     if (capture_type != 0b000 && capture_type != 0b111) 
@@ -538,7 +549,7 @@ void Board::unmove(Move move)
     }
 
     // Update attack squares, pinned pieces, and check
-    if (regen) update_board(opposite_color[start_p.color]);
+    update_board(opposite_color[start_p.color]);
 
     undo_history();
 }
@@ -571,7 +582,6 @@ std::vector<Moves> Board::generate_moves(Color color)
             {
                 return_v.push_back(Moves{*piece, move_bmap});
             }
-
         }
         else if (piece->piece_t == PieceType::KNIGHT) 
         {
