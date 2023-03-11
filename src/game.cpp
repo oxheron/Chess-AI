@@ -359,12 +359,12 @@ void Board::move(Move move)
     // Update bitboard
     if (start_p.color == Color::WHITE) 
     {
-        white_pieces &= ~(uint64_t) 1 << move.start_pos;
+        white_pieces &= ~((uint64_t) 1 << move.start_pos);
         white_pieces |= (uint64_t) 1 << move.end_pos;
     }
     else
     {
-        black_pieces &= ~(uint64_t) 1 << move.start_pos;
+        black_pieces &= ~((uint64_t) 1 << move.start_pos);
         black_pieces |= (uint64_t) 1 << move.end_pos;
     }
 
@@ -382,12 +382,12 @@ void Board::move(Move move)
 
             if (start_p.color == Color::WHITE) 
             {
-                white_pieces &= ~(uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56);
+                white_pieces &= ~((uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56));
                 white_pieces |= (uint64_t) 1 << (5 + ((int) !(bool) start_p.color) * 56);
             }
             else
             {
-                black_pieces &= ~(uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56);
+                black_pieces &= ~((uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56));
                 black_pieces |= (uint64_t) 1 << (5 + ((int) !(bool) start_p.color) * 56);
             }
         }
@@ -400,12 +400,12 @@ void Board::move(Move move)
 
             if (start_p.color == Color::WHITE) 
             {
-                white_pieces &= ~(uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56);
+                white_pieces &= ~((uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56));
                 white_pieces |= (uint64_t) 1 << (((int) !(bool) start_p.color) * 56);
             }
             else
             {
-                black_pieces &= ~(uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56);
+                black_pieces &= ~((uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56));
                 black_pieces |= (uint64_t) 1 << (((int) !(bool) start_p.color) * 56);
             }
         }
@@ -451,11 +451,11 @@ void Board::move(Move move)
         // Update bitboard
         if (start_p.color == Color::WHITE) 
         {
-            black_pieces &= ~(uint64_t) 1 << (move.end_pos - ((bool) start_p.color ? -8 : 8));
+            black_pieces &= ~((uint64_t) 1 << (move.end_pos - ((bool) start_p.color ? -8 : 8)));
         }
         else
         {
-            white_pieces &= ~(uint64_t) 1 << (move.end_pos - ((bool) start_p.color ? -8 : 8));
+            white_pieces &= ~((uint64_t) 1 << (move.end_pos - ((bool) start_p.color ? -8 : 8)));
         }
 
         fifty_mover = 0;
@@ -487,8 +487,10 @@ void Board::unmove(Move move)
     turn = !turn;
     if (turn) this->moves--;
 
+    Piece start_p = *board[move.end_pos];
+
     // Undo castling
-    if (move.special == UINT8_MAX)
+    if (move.special == INT8_MAX)
     {
         // Move rook 
         // KC
@@ -497,6 +499,17 @@ void Board::unmove(Move move)
             board[7 + ((int) !(bool) start_p.color) * 56]->square = 5 + ((int) !(bool) start_p.color) * 56;
             board[5 + ((int) !(bool) start_p.color) * 56]->square = 7 + ((int) !(bool) start_p.color) * 56;
             board[7 + ((int) !(bool) start_p.color) * 56].swap(board[5 + ((int) !(bool) start_p.color) * 56]);
+
+            if (start_p.color == Color::WHITE) 
+            {
+                white_pieces &= ~((uint64_t) 1 << (5 + ((int) !(bool) start_p.color) * 56));
+                white_pieces |= (uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56);
+            }
+            else
+            {
+                black_pieces &= ~((uint64_t) 1 << (5 + ((int) !(bool) start_p.color) * 56));
+                black_pieces |= (uint64_t) 1 << (7 + ((int) !(bool) start_p.color) * 56);
+            }
         }
         // QC
         else 
@@ -504,14 +517,23 @@ void Board::unmove(Move move)
             board[3 + ((int) !(bool) start_p.color) * 56]->square =((int) !(bool) start_p.color) * 56;
             board[((int) !(bool) start_p.color) * 56]->square = 3 + ((int) !(bool) start_p.color) * 56;
             board[3 + ((int) !(bool) start_p.color) * 56].swap(board[((int) !(bool) start_p.color) * 56]);
+
+            if (start_p.color == Color::WHITE) 
+            {
+                white_pieces &= ~((uint64_t) 1 << (((int) !(bool) start_p.color) * 56));
+                white_pieces |= (uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56);
+            }
+            else
+            {
+                black_pieces &= ~((uint64_t) 1 << (((int) !(bool) start_p.color) * 56));
+                black_pieces |= (uint64_t) 1 << (3 + ((int) !(bool) start_p.color) * 56);
+            }
         }
     }
     // Check if move is promote 
     else if (move.special != 0) board[move.end_pos]->piece_t = PieceType::PAWN;
 
     // Undo the move on board
-    Piece start_p = *board[move.end_pos];
-
     board[move.end_pos]->square = move.start_pos;
     board[move.start_pos]->square = move.end_pos;
     board[move.start_pos].swap(board[move.end_pos]);
@@ -519,12 +541,12 @@ void Board::unmove(Move move)
     // Update bitboard
     if (start_p.color == Color::WHITE) 
     {
-        white_pieces &= ~(uint64_t) 1 << move.end_pos;
+        white_pieces &= ~((uint64_t) 1 << move.end_pos);
         white_pieces |= (uint64_t) 1 << move.start_pos;
     }
     else
     {
-        black_pieces &= ~(uint64_t) 1 << move.end_pos;
+        black_pieces &= ~((uint64_t) 1 << move.end_pos);
         black_pieces |= (uint64_t) 1 << move.start_pos;
     }
 
@@ -539,14 +561,36 @@ void Board::unmove(Move move)
             board[move.start_pos / 8 + past_epfile]->color = opposite_color[board[move.start_pos]->color];
             board[move.start_pos / 8 + past_epfile]->piece_t = (PieceType) capture_type;
             ((board[move.start_pos / 8 + past_epfile]->color == Color::WHITE) ? white : black).push_back(board[move.start_pos / 8 + past_epfile]);
+
+            // Update bitboard
+            if (start_p.color == Color::WHITE) 
+            {
+                black_pieces |= (uint64_t) 1 << move.start_pos / 8 + past_epfile;
+            }
+            else
+            {
+                white_pieces |= (uint64_t) 1 << move.start_pos / 8 + past_epfile;
+            }
         }
         else 
         {
             board[move.end_pos]->color = opposite_color[board[move.start_pos]->color];
             board[move.end_pos]->piece_t = (PieceType) capture_type;
             ((board[move.end_pos]->color == Color::WHITE) ? white : black).push_back(board[move.end_pos]);
+
+            // Update bitboard
+            if (start_p.color == Color::WHITE) 
+            {
+                black_pieces |= (uint64_t) 1 << move.end_pos;
+            }
+            else
+            {
+                white_pieces |= (uint64_t) 1 << move.end_pos;
+            }
         }   
     }
+
+    all_pieces = black_pieces | white_pieces;
 
     // Update attack squares, pinned pieces, and check
     update_board(opposite_color[start_p.color]);
