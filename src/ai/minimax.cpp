@@ -11,19 +11,13 @@ size_t search(int depth, Board& board)
     for (auto x : piece_moves)
     {
         auto moves = extract_moves(x);
-        std::cout << "here" << std::endl;
         // Crash on this line or entering moves loop
         if (depth == 1) pos_c += moves.size();
-        std::cout << "her2e";
         for (auto m : moves)
         {
-            std::cout << "starting ";
             board.move(m);
-            std::cout << "after moves ";
             pos_c += search(depth - 1, board);
-            std::cout << "after search "; 
             board.unmove(m);
-            std::cout << "after unmove ";
         }
     }
 

@@ -325,6 +325,8 @@ void Board::move(Move move)
 {
     update_history();
 
+    capture_type = 0;
+
     fifty_mover++;
 
     Piece start_p = *board[move.start_pos];
@@ -441,10 +443,7 @@ void Board::move(Move move)
     {
         // Do capture if so
         capture_type = (char) PieceType::PAWN;
-        for (auto p : (((bool) board[move.end_pos]->color) ? white : black))
-        {
-            if (p->square == move.end_pos - ((bool) start_p.color ? -8 : 8)) (((bool) board[move.end_pos]->color) ? white : black).remove(p);
-        }
+        (start_p.color == Color::WHITE ? black : white).remove(board[move.end_pos - ((bool) start_p.color ? -8 : 8)]);
         board[move.end_pos - ((bool) start_p.color ? -8 : 8)]->color = Color::NONE;
         board[move.end_pos - ((bool) start_p.color ? -8 : 8)]->piece_t = PieceType::EMPTY;
 
@@ -565,11 +564,11 @@ void Board::unmove(Move move)
             // Update bitboard
             if (start_p.color == Color::WHITE) 
             {
-                black_pieces |= (uint64_t) 1 << move.start_pos / 8 + past_epfile;
+                black_pieces |= (uint64_t) 1 << move.start_pos / 8 + past_epfile);
             }
             else
             {
-                white_pieces |= (uint64_t) 1 << move.start_pos / 8 + past_epfile;
+                white_pieces |= (uint64_t) 1 << (move.start_pos / 8 + past_epfile);
             }
         }
         else 
@@ -593,7 +592,7 @@ void Board::unmove(Move move)
     all_pieces = black_pieces | white_pieces;
 
     // Update attack squares, pinned pieces, and check
-    update_board(opposite_color[start_p.color]);
+    update_board(start_p.color);
 
     undo_history();
 }
@@ -716,8 +715,8 @@ void Board::calc_pins(Color color, char king_sq)
                 if (bit_tables[x->square][start] & (uint64_t) 1 << king_sq) 
                 {
                     // Bit loc thing doesn't work 
-                    size_t bit_loc = find_set_bit(bit_tables[x->square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start] & all_pieces.to_ullong()) - 1;
-                    if (bit_loc && board[bit_loc]->color != x->color) pins[bit_loc] = pin_offsets[sliding_offsets[start]];                    
+                    size_t bit_loc = find_set_bit(bit_tables[x->square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start] & all_pieces.to_ullong());
+                    if (bit_loc && board[bit_loc - 1]->color != x->color) pins[bit_loc - 1] = pin_offsets[sliding_offsets[start]];               
                     break;
                 }
             }
