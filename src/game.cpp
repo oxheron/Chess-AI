@@ -91,6 +91,11 @@ std::array<std::array<char, 3>, 2> pawn_offsets({{
     {{ 8,  9,  7}}
 }});
 
+std::array<std::array<char, 3>, 2> b10_pawn_offsets({{
+    {{-10, -11, -9}},
+    {{ 10,  11,  9}}
+}});
+
 // List of different offsets for pins and how the correspond to sliding offsets
 // Pinned directions are 0 (nothing) 1 (horizontal) 2 (vertical) 3 (nwse) 4 (nesw)
 std::unordered_map<char, char> pin_offsets({
@@ -162,15 +167,14 @@ void gen_bit_tables()
         save[sq + pawn_offsets[1][0]] = 1;
         pawn_forward[sq][1] = save.to_ullong();
         save = 0;
-        if (remainder(x + 1 + remainder(pawn_offsets[0][1], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[0][1], 10), 10) != 9) save[sq + pawn_offsets[0][1]] = 1;
-        if (remainder(x + 1 + remainder(pawn_offsets[0][2], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[0][2], 10), 10) != 9) save[sq + pawn_offsets[0][2]] = 1;
+        if (remainder(x + 1 + remainder(b10_pawn_offsets[0][1], 10), 10) != 0 && remainder(x + 1 + remainder(b10_pawn_offsets[0][1], 10), 10) != 9) save[sq + pawn_offsets[0][1]] = 1;
+        if (remainder(x + 1 + remainder(b10_pawn_offsets[0][2], 10), 10) != 0 && remainder(x + 1 + remainder(b10_pawn_offsets[0][2], 10), 10) != 9) save[sq + pawn_offsets[0][2]] = 1;
         pawn_captures[sq][0] = save.to_ullong();
         save = 0;
-        if (remainder(x + 1 + remainder(pawn_offsets[1][1], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[1][1], 10), 10) != 9) save[sq + pawn_offsets[1][1]] = 1;
-        if (remainder(x + 1 + remainder(pawn_offsets[1][2], 10), 10) != 0 && remainder(x + 1 + remainder(pawn_offsets[1][2], 10), 10) != 9) save[sq + pawn_offsets[1][2]] = 1;
+        if (remainder(x + 1 + remainder(b10_pawn_offsets[1][1], 10), 10) != 0 && remainder(x + 1 + remainder(b10_pawn_offsets[1][1], 10), 10) != 9) save[sq + pawn_offsets[1][1]] = 1;
+        if (remainder(x + 1 + remainder(b10_pawn_offsets[1][2], 10), 10) != 0 && remainder(x + 1 + remainder(b10_pawn_offsets[1][2], 10), 10) != 9) save[sq + pawn_offsets[1][2]] = 1;
         pawn_captures[sq][1] = save.to_ullong();
         save = 0;
-
 
         for (size_t i = 0; i < 8; i++)
         {
@@ -194,7 +198,7 @@ Board::Board()
     gen_bit_tables();
     for (char i = 0; i < board.size(); i++)
     {
-        board[i] = std::make_shared<Piece>(PieceType::EMPTY, Color::NONE, i);
+        board.at(i) = std::make_shared<Piece>(PieceType::EMPTY, Color::NONE, i);
     }
 }
 
@@ -222,20 +226,20 @@ void Board::load_fen(std::string fen)
                 if (std::isupper(fen[fen_idx])) 
                 {
                     char sq = i * 8 + j;
-                    board[sq]->piece_t = ctop_t[std::tolower(fen[fen_idx])];
-                    board[sq]->square = sq;
-                    board[sq]->color = Color::WHITE;
+                    board.at(sq)->piece_t = ctop_t[std::tolower(fen[fen_idx])];
+                    board.at(sq)->square = sq;
+                    board.at(sq)->color = Color::WHITE;
                     white_pieces[sq] = 1;
-                    white.push_back(board[sq]);
+                    white.push_back(board.at(sq));
                 }
                 else
                 {
                     char sq = i * 8 + j;
-                    board[sq]->piece_t = ctop_t[fen[fen_idx]];
-                    board[sq]->square = sq;
-                    board[sq]->color = Color::BLACK;
+                    board.at(sq)->piece_t = ctop_t[fen[fen_idx]];
+                    board.at(sq)->square = sq;
+                    board.at(sq)->color = Color::BLACK;
                     black_pieces[sq] = 1;
-                    black.push_back(board[sq]);
+                    black.push_back(board.at(sq));
                 }
             }
             else
@@ -329,34 +333,34 @@ void Board::move(Move move)
 
     fifty_mover++;
 
-    Piece start_p = *board[move.start_pos];
+    Piece start_p = *board.at(move.start_pos);
     if (start_p.color != (Color) turn) return;
 
     // Do capture
-    if (board[move.end_pos]->color == opposite_color[start_p.color]) 
+    if (board.at(move.end_pos)->color == opposite_color[start_p.color]) 
     {
-        capture_type = (char) board[move.end_pos]->piece_t;
-        (((bool) board[move.end_pos]->color) ? white : black).remove(board[move.end_pos]);
-        board[move.end_pos]->color = Color::NONE;
-        board[move.end_pos]->piece_t = PieceType::EMPTY;
+        capture_type = (char) board.at(move.end_pos)->piece_t;
+        (((bool) board.at(move.end_pos)->color) ? white : black).remove(board.at(move.end_pos));
+        board.at(move.end_pos)->color = Color::NONE;
+        board.at(move.end_pos)->piece_t = PieceType::EMPTY;
 
         // Update bitboard
         if (start_p.color == Color::WHITE) 
         {
-            black_pieces &= ~(uint64_t) 1 << move.end_pos;
+            black_pieces &= ~((uint64_t) 1 << move.end_pos);
         }
         else
         {
-            white_pieces &= ~(uint64_t) 1 << move.end_pos;
+            white_pieces &= ~((uint64_t) 1 << move.end_pos);
         }
 
         fifty_mover = 0;
     }
 
     // Do the move on the board
-    board[move.end_pos]->square = move.start_pos;
-    board[move.start_pos]->square = move.end_pos;
-    board[move.start_pos].swap(board[move.end_pos]);
+    board.at(move.end_pos)->square = move.start_pos;
+    board.at(move.start_pos)->square = move.end_pos;
+    board.at(move.start_pos).swap(board.at(move.end_pos));
 
     // Update bitboard
     if (start_p.color == Color::WHITE) 
@@ -378,9 +382,9 @@ void Board::move(Move move)
         // KC
         if (move.start_pos - move.end_pos < 0) 
         {
-            board[7 + ((int) !(bool) start_p.color) * 56]->square = 5 + ((int) !(bool) start_p.color) * 56;
-            board[5 + ((int) !(bool) start_p.color) * 56]->square = 7 + ((int) !(bool) start_p.color) * 56;
-            board[7 + ((int) !(bool) start_p.color) * 56].swap(board[5 + ((int) !(bool) start_p.color) * 56]);
+            board.at(7 + ((int) !(bool) start_p.color) * 56)->square = 5 + ((int) !(bool) start_p.color) * 56;
+            board.at(5 + ((int) !(bool) start_p.color) * 56)->square = 7 + ((int) !(bool) start_p.color) * 56;
+            board.at(7 + ((int) !(bool) start_p.color) * 56).swap(board.at(5 + ((int) !(bool) start_p.color) * 56));
 
             if (start_p.color == Color::WHITE) 
             {
@@ -396,9 +400,9 @@ void Board::move(Move move)
         // QC
         else 
         {
-            board[3 + ((int) !(bool) start_p.color) * 56]->square = ((int) !(bool) start_p.color) * 56;
-            board[((int) !(bool) start_p.color) * 56]->square = 3 + ((int) !(bool) start_p.color) * 56;
-            board[3 + ((int) !(bool) start_p.color) * 56].swap(board[((int) !(bool) start_p.color) * 56]);
+            board.at(3 + ((int) !(bool) start_p.color) * 56)->square = ((int) !(bool) start_p.color) * 56;
+            board.at(((int) !(bool) start_p.color) * 56)->square = 3 + ((int) !(bool) start_p.color) * 56;
+            board.at(3 + ((int) !(bool) start_p.color) * 56).swap(board.at(((int) !(bool) start_p.color) * 56));
 
             if (start_p.color == Color::WHITE) 
             {
@@ -424,7 +428,10 @@ void Board::move(Move move)
             black_QC = 0;
         }
     }
-    else if (move.special != 0) board[move.start_pos]->piece_t = (PieceType) move.special;
+    else if (move.special != 0)
+    {   
+        board.at(move.end_pos)->piece_t = (PieceType) move.special;
+    } 
 
     if (start_p.piece_t == PieceType::ROOK && (start_p.square % 8) == 0) 
     {
@@ -438,14 +445,15 @@ void Board::move(Move move)
         else white_QC = 0;
     }
 
+
     // Check if move is EP
-    if (start_p.piece_t == PieceType::PAWN && board[move.start_pos]->piece_t == PieceType::EMPTY && (move.start_pos - move.end_pos) % 8 != 0)
+    if (start_p.piece_t == PieceType::PAWN && board.at(move.start_pos)->piece_t == PieceType::EMPTY && move.end_pos % 8 == ep_file)
     {
         // Do capture if so
         capture_type = (char) PieceType::PAWN;
-        (start_p.color == Color::WHITE ? black : white).remove(board[move.end_pos - ((bool) start_p.color ? -8 : 8)]);
-        board[move.end_pos - ((bool) start_p.color ? -8 : 8)]->color = Color::NONE;
-        board[move.end_pos - ((bool) start_p.color ? -8 : 8)]->piece_t = PieceType::EMPTY;
+        (start_p.color == Color::WHITE ? black : white).remove(board.at(move.end_pos - ((bool) start_p.color ? -8 : 8)));
+        board.at(move.end_pos - ((bool) start_p.color ? -8 : 8))->color = Color::NONE;
+        board.at(move.end_pos - ((bool) start_p.color ? -8 : 8))->piece_t = PieceType::EMPTY;
 
         // Update bitboard
         if (start_p.color == Color::WHITE) 
@@ -467,7 +475,7 @@ void Board::move(Move move)
     // Wrap up stuff
     ep_file = 0;
     turn = !turn;
-    if (board[move.end_pos]->piece_t == PieceType::PAWN)
+    if (board.at(move.end_pos)->piece_t == PieceType::PAWN)
     {
         fifty_mover = 0;
         if (abs(move.start_pos - move.end_pos) == 16) 
@@ -486,7 +494,7 @@ void Board::unmove(Move move)
     turn = !turn;
     if (turn) this->moves--;
 
-    Piece start_p = *board[move.end_pos];
+    Piece start_p = *board.at(move.end_pos);
 
     // Undo castling
     if (move.special == INT8_MAX)
@@ -495,9 +503,9 @@ void Board::unmove(Move move)
         // KC
         if (move.start_pos - move.end_pos < 0) 
         {
-            board[7 + ((int) !(bool) start_p.color) * 56]->square = 5 + ((int) !(bool) start_p.color) * 56;
-            board[5 + ((int) !(bool) start_p.color) * 56]->square = 7 + ((int) !(bool) start_p.color) * 56;
-            board[7 + ((int) !(bool) start_p.color) * 56].swap(board[5 + ((int) !(bool) start_p.color) * 56]);
+            board.at(7 + ((int) !(bool) start_p.color) * 56)->square = 5 + ((int) !(bool) start_p.color) * 56;
+            board.at(5 + ((int) !(bool) start_p.color) * 56)->square = 7 + ((int) !(bool) start_p.color) * 56;
+            board.at(7 + ((int) !(bool) start_p.color) * 56).swap(board.at(5 + ((int) !(bool) start_p.color) * 56));
 
             if (start_p.color == Color::WHITE) 
             {
@@ -513,9 +521,9 @@ void Board::unmove(Move move)
         // QC
         else 
         {
-            board[3 + ((int) !(bool) start_p.color) * 56]->square =((int) !(bool) start_p.color) * 56;
-            board[((int) !(bool) start_p.color) * 56]->square = 3 + ((int) !(bool) start_p.color) * 56;
-            board[3 + ((int) !(bool) start_p.color) * 56].swap(board[((int) !(bool) start_p.color) * 56]);
+            board.at(3 + ((int) !(bool) start_p.color) * 56)->square =((int) !(bool) start_p.color) * 56;
+            board.at(((int) !(bool) start_p.color) * 56)->square = 3 + ((int) !(bool) start_p.color) * 56;
+            board.at(3 + ((int) !(bool) start_p.color) * 56).swap(board.at(((int) !(bool) start_p.color) * 56));
 
             if (start_p.color == Color::WHITE) 
             {
@@ -530,12 +538,12 @@ void Board::unmove(Move move)
         }
     }
     // Check if move is promote 
-    else if (move.special != 0) board[move.end_pos]->piece_t = PieceType::PAWN;
+    else if (move.special != 0) board.at(move.end_pos)->piece_t = PieceType::PAWN;
 
     // Undo the move on board
-    board[move.end_pos]->square = move.start_pos;
-    board[move.start_pos]->square = move.end_pos;
-    board[move.start_pos].swap(board[move.end_pos]);
+    board.at(move.end_pos)->square = move.start_pos;
+    board.at(move.start_pos)->square = move.end_pos;
+    board.at(move.start_pos).swap(board.at(move.end_pos));
 
     // Update bitboard
     if (start_p.color == Color::WHITE) 
@@ -557,14 +565,14 @@ void Board::unmove(Move move)
         if (((game_history.top() & (short) 0b01110000000) >> 7) == 0b111 && move.end_pos % 8 == ((game_history.top() & (short) 0b01110000) >> 4))
         {
             char past_epfile = ((game_history.top() & (short) 0b01110000) >> 4);
-            board[move.start_pos / 8 + past_epfile]->color = opposite_color[board[move.start_pos]->color];
-            board[move.start_pos / 8 + past_epfile]->piece_t = (PieceType) capture_type;
-            ((board[move.start_pos / 8 + past_epfile]->color == Color::WHITE) ? white : black).push_back(board[move.start_pos / 8 + past_epfile]);
+            board.at(move.start_pos / 8 + past_epfile)->color = opposite_color[board.at(move.start_pos)->color];
+            board.at(move.start_pos / 8 + past_epfile)->piece_t = (PieceType) capture_type;
+            ((board.at(move.start_pos / 8 + past_epfile)->color == Color::WHITE) ? white : black).push_back(board.at(move.start_pos / 8 + past_epfile));
 
             // Update bitboard
             if (start_p.color == Color::WHITE) 
             {
-                black_pieces |= (uint64_t) 1 << move.start_pos / 8 + past_epfile);
+                black_pieces |= (uint64_t) 1 << (move.start_pos / 8 + past_epfile);
             }
             else
             {
@@ -573,9 +581,9 @@ void Board::unmove(Move move)
         }
         else 
         {
-            board[move.end_pos]->color = opposite_color[board[move.start_pos]->color];
-            board[move.end_pos]->piece_t = (PieceType) capture_type;
-            ((board[move.end_pos]->color == Color::WHITE) ? white : black).push_back(board[move.end_pos]);
+            board.at(move.end_pos)->color = opposite_color[board.at(move.start_pos)->color];
+            board.at(move.end_pos)->piece_t = (PieceType) capture_type;
+            ((board.at(move.end_pos)->color == Color::WHITE) ? white : black).push_back(board.at(move.end_pos));
 
             // Update bitboard
             if (start_p.color == Color::WHITE) 
@@ -716,7 +724,7 @@ void Board::calc_pins(Color color, char king_sq)
                 {
                     // Bit loc thing doesn't work 
                     size_t bit_loc = find_set_bit(bit_tables[x->square][start] & ~bit_tables[king_sq - sliding_offsets[start]][start] & all_pieces.to_ullong());
-                    if (bit_loc && board[bit_loc - 1]->color != x->color) pins[bit_loc - 1] = pin_offsets[sliding_offsets[start]];               
+                    if (bit_loc && board.at(bit_loc - 1)->color != x->color) pins[bit_loc - 1] = pin_offsets[sliding_offsets[start]];               
                     break;
                 }
             }
@@ -809,7 +817,7 @@ void Board::update_board(Color color)
                         if (masked_blockers != 0)
                         {
                             int closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
-                            if (board[closest]->color == x->color) closest -= sliding_offsets[start];
+                            if (board.at(closest)->color == x->color) closest -= sliding_offsets[start];
                             result &= ~bit_tables[closest][start];
                         }
                         
@@ -856,7 +864,7 @@ uint64_t Board::sliding_moves(Piece piece)
         uint64_t masked_blockers = bit_tables[piece.square][start] & all_pieces.to_ullong();
         if (masked_blockers == 0) continue;
         int closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
-        if (board[closest]->color == piece.color) closest -= sliding_offsets[start];
+        if (board.at(closest)->color == piece.color) closest -= sliding_offsets[start];
         output &= ~bit_tables[closest][start];
     }
 
@@ -876,12 +884,15 @@ uint64_t Board::pawn_moves(Piece piece)
     // Use hardcoded logic for 2 squares 
 
     // Do ep using ep_bitmap
+    // Something wrong with this and captures
     uint64_t output = (pawn_captures[piece.square][(bool) piece.color] & ((piece.color == Color::WHITE ? black_pieces.to_ullong() : white_pieces.to_ullong()) | ep_bitmap[(bool) piece.color][ep_file])) | (pawn_forward[piece.square][(bool) piece.color] & ~all_pieces.to_ullong());
 
     // Do proper checking of start squares 
     if (start_y[(bool) piece.color] == piece.square / 8 && !all_pieces[piece.square + pawn_offsets[(bool) piece.color][0]] && !all_pieces[piece.square + 2 * pawn_offsets[(bool) piece.color][0]]) output |= (uint64_t) 1 << (piece.square + 2 * pawn_offsets[(bool) piece.color][0]);
+    // BUG HERE I THINK
 
     // Pins and stop check
+    // Pins being done correctly, bug is on capture generation
     output &= stop_check & pin_tables[piece.square][pins[piece.square]];
 
     // Check for promotion  
