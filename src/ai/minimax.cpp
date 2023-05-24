@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <stdexcept>
 
 std::ofstream loggger("out.text", std::ios_base::ate);
 
@@ -48,27 +49,31 @@ size_t search(int depth, Board& board)
         {
             for (auto m : moves)
             {
-                // size_t save = board.all_pieces.to_ullong();
-                // size_t save2;
-                print_square(m.start_pos);
-                print_square(m.end_pos);
-                std::cout << ": ";
+                size_t save = board.all_pieces.to_ullong();
+                auto pins = board.pins;
+                board.update_history();
+                short history = board.game_history.top();
+                board.game_history.pop();
+                size_t save2;
+                if (depth == 4) print_square(m.start_pos);
+                if (depth == 4) print_square(m.end_pos);
+                if (depth == 4) std::cout << ", " << (int) m.special << ": "; 
                 board.move(m);
-                std::cout << "after move" << std::endl;
-                // save2 = board.all_pieces.to_ullong();
+                save2 = board.all_pieces.to_ullong();
                 pos_c += search(depth - 1, board);
                 board.unmove(m);
-                // if (board.all_pieces.to_ullong() != save) 
-                // {
-                //     std::cout << "move: " << (int) m.start_pos << ", " << (int) m.end_pos << ", " << (int) m.special << std::endl;
-                //     print_bitset(x.bitboard);
-                //     std::cout << "before move" << std::endl;
-                //     print_bitset(save);
-                //     std::cout << "after move" << std::endl;
-                //     print_bitset(save2);
-                //     std::cout << "after unmove" << std::endl;
-                //     print_bitset(board.all_pieces.to_ullong());
-                // }
+                board.update_history();
+                if (board.all_pieces.to_ullong() != save || pins != board.pins || history != board.game_history.top()) 
+                {
+                    std::cout << "before move" << std::endl;
+                    print_bitset(save);
+                    std::cout << "after move" << std::endl;
+                    print_bitset(save2);
+                    std::cout << "after unmove" << std::endl;
+                    print_bitset(board.all_pieces.to_ullong());
+                    throw std::runtime_error("move/unmove error");
+                }
+                board.game_history.pop();
             }
         }
     }
@@ -76,7 +81,7 @@ size_t search(int depth, Board& board)
     // Miscalculation when promoting
     // Move gen is wrong (I think pin calc)
 
-    std::cout << pos_c << std::endl;
+    if (depth == 3) std::cout << pos_c << std::endl;
 
     return pos_c;
 }

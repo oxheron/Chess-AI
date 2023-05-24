@@ -48,12 +48,12 @@ std::array<std::array<uint64_t, 5>, 64> pin_tables;
 
 // King castle squares (bitmaps), add 2 if color is white
 std::array<uint64_t, 4> king_castle({
-    (uint64_t) 1 << 61, (uint64_t) 62, (uint64_t) 1 << 5, (uint64_t) 1 << 6
+    (uint64_t) 1 << 5, (uint64_t) 1 << 6, (uint64_t) 1 << 61, (uint64_t) 1 << 62,
 });
 
 // Queen side castle king move square (bitmaps), to use add 2 if the color is white
 std::array<uint64_t, 4> queen_castle({
-    (uint64_t) 1 << 57, (uint64_t) 58, (uint64_t) 1 << 2, (uint64_t) 1 << 3
+    (uint64_t) 1 << 2, (uint64_t) 1 << 3, (uint64_t) 1 << 57, (uint64_t) 1 << 58, 
 });
 
 // Calculate the valid bits in a bitset for a certain EP file
@@ -433,21 +433,24 @@ void Board::move(Move move)
         board.at(move.end_pos)->piece_t = (PieceType) move.special;
     } 
 
-    if (start_p.piece_t == PieceType::ROOK && (start_p.square % 8) == 0) 
+    // White castling clear
+    if (!(white_pieces.to_ullong() & (uint64_t) 1 << 7)) white_KC = 0; 
+    if (!(white_pieces.to_ullong() & (uint64_t) 1)) white_QC = 0; 
+    if (!(black_pieces.to_ullong() & (uint64_t) 1 << 63)) black_KC = 0; 
+    if (!(black_pieces.to_ullong() & (uint64_t) 1 << 56)) black_QC = 0; 
+    if (!(white_pieces.to_ullong() & (uint64_t) 1 << 4)) 
     {
-        if (start_p.color == Color::WHITE) white_QC = 0;
-        else black_QC = 0;
+        white_KC = 0;
+        white_QC = 0;
     }
-
-    if (start_p.piece_t == PieceType::ROOK && (start_p.square % 8) == 7)
+    if (!(black_pieces.to_ullong() & (uint64_t) 1 << 60)) 
     {
-        if (start_p.color == Color::WHITE) white_KC = 0;
-        else white_QC = 0;
+        black_KC = 0;
+        black_QC = 0;
     }
-
 
     // Check if move is EP
-    if (start_p.piece_t == PieceType::PAWN && board.at(move.start_pos)->piece_t == PieceType::EMPTY && move.end_pos % 8 == ep_file)
+    if (start_p.piece_t == PieceType::PAWN && board.at(move.start_pos)->piece_t == PieceType::EMPTY && move.end_pos % 8 == ep_file && capture_type == 0b111)
     {
         // Do capture if so
         capture_type = (char) PieceType::PAWN;
@@ -470,8 +473,6 @@ void Board::move(Move move)
 
     all_pieces = white_pieces | black_pieces;
 
-    update_board(start_p.color);
-
     // Wrap up stuff
     ep_file = 0;
     turn = !turn;
@@ -484,6 +485,8 @@ void Board::move(Move move)
             capture_type = 0b111;
         }
     } 
+
+    update_board(start_p.color);
 
     if (turn) this->moves++;
 }
@@ -540,6 +543,7 @@ void Board::unmove(Move move)
     // Check if move is promote 
     else if (move.special != 0) board.at(move.end_pos)->piece_t = PieceType::PAWN;
 
+    // Check for error here
     // Undo the move on board
     board.at(move.end_pos)->square = move.start_pos;
     board.at(move.start_pos)->square = move.end_pos;
@@ -558,11 +562,12 @@ void Board::unmove(Move move)
     }
 
     // Undo captures
+    // Weird capture stuff
     if (capture_type != 0b000 && capture_type != 0b111) 
     {
         // Ep capture
         // Check ep square and make sure that the pawn is moving into that file
-        if (((game_history.top() & (short) 0b01110000000) >> 7) == 0b111 && move.end_pos % 8 == ((game_history.top() & (short) 0b01110000) >> 4))
+        if (((game_history.top() & (short) 0b01110000000) >> 7) == 0b111 && move.end_pos == (start_p.color == Color::WHITE ? 48 : 24) + ((game_history.top() & (short) 0b01110000) >> 4) && start_p.piece_t == PieceType::PAWN)
         {
             char past_epfile = ((game_history.top() & (short) 0b01110000) >> 4);
             board.at(move.start_pos / 8 + past_epfile)->color = opposite_color[board.at(move.start_pos)->color];
@@ -600,7 +605,7 @@ void Board::unmove(Move move)
     all_pieces = black_pieces | white_pieces;
 
     // Update attack squares, pinned pieces, and check
-    update_board(start_p.color);
+    update_board(opposite_color[start_p.color]);
 
     undo_history();
 }
@@ -643,10 +648,11 @@ std::vector<Moves> Board::generate_moves(Color color)
             // Castling
             if (!in_check) 
             {
-                if (color == Color::WHITE && white_KC && KC_safe && (~all_pieces.to_ullong() & (uint64_t) 0x60) == 0x60) return_v.push_back(Moves{*piece, (uint64_t) 1 << 6, INT8_MAX});
-                else if (color == Color::WHITE && white_QC && QC_safe && (~all_pieces.to_ullong() & (uint64_t) 0xC) == 0xC) return_v.push_back(Moves{*piece, (uint64_t) 1 << 2, INT8_MAX});
-                else if (color == Color::BLACK && black_KC && KC_safe && (~all_pieces.to_ullong() & (uint64_t) 0x5FFFFFF990769000) == 0x5FFFFFF990769000) return_v.push_back(Moves{*piece, (uint64_t) 1 << 62, INT8_MAX});
-                else if (color == Color::BLACK && black_KC && KC_safe && (~all_pieces.to_ullong() & (uint64_t) 0xC0000005C14C400) == 0xC0000005C14C400) return_v.push_back(Moves{*piece, (uint64_t) 1 << 58, INT8_MAX});
+                // The bitwise check checks if the square are empty
+                if (color == Color::WHITE && white_KC && KC_safe && (~white_pieces.to_ullong() & (uint64_t) 0x60) == 0x60) return_v.push_back(Moves{*piece, (uint64_t) 1 << 6, INT8_MAX});
+                else if (color == Color::WHITE && white_QC && QC_safe && (~white_pieces.to_ullong() & (uint64_t) 0xC) == 0xC) return_v.push_back(Moves{*piece, (uint64_t) 1 << 2, INT8_MAX});
+                else if (color == Color::BLACK && black_KC && KC_safe && (~black_pieces.to_ullong() & (uint64_t) 0x5FFFFFF990769000) == 0x5FFFFFF990769000) return_v.push_back(Moves{*piece, (uint64_t) 1 << 62, INT8_MAX});
+                else if (color == Color::BLACK && black_KC && KC_safe && (~black_pieces.to_ullong() & (uint64_t) 0xC0000005C14C400) == 0xC0000005C14C400) return_v.push_back(Moves{*piece, (uint64_t) 1 << 58, INT8_MAX});
             }
 
             return_v.push_back(Moves{*piece, attacked & ~(color == Color::WHITE ? white_pieces.to_ullong() : black_pieces.to_ullong())});
@@ -688,15 +694,18 @@ uint64_t Board::all_attacks(Color color, uint64_t no_king)
             {
                 size_t start = x->piece_t == PieceType::BISHOP ? 4 : 0;
                 size_t end = x->piece_t == PieceType::QUEEN ? 8 : start + 4;
+                size_t attacked_by_this = 0;
 
                 for (; start < end; start++)
                 {      
-                    all_attacked |= bit_tables[x->square][start];
+                    attacked_by_this |= bit_tables[x->square][start];
                     uint64_t masked_blockers = bit_tables[x->square][start] & no_king;
                     if (masked_blockers == 0) continue;
                     int closest = sliding_offsets[start] > 0 ? bit_scan_fw(masked_blockers) : bit_scan_rv(masked_blockers);
-                    all_attacked &= ~bit_tables[closest][start];
+                    attacked_by_this &= ~bit_tables[closest][start];
                 }
+
+                all_attacked |= attacked_by_this;
             }
         }
     }
@@ -716,7 +725,7 @@ void Board::calc_pins(Color color, char king_sq)
         if (x->piece_t == PieceType::BISHOP || x->piece_t == PieceType::ROOK || x->piece_t == PieceType::QUEEN)
         {
             size_t start = x->piece_t == PieceType::BISHOP ? 4 : 0;
-            size_t end = x->piece_t == PieceType::QUEEN ? 8 : start + 4;
+            size_t end = x->piece_t == PieceType::ROOK ? 4 : 8;
 
             for (; start < end; start++)
             {
@@ -750,14 +759,15 @@ void Board::update_board(Color color)
     
     // Calculate safe squares around the king (using generate attacks method but xor all pieces with king square (so the king doesnt exist in terms of seeing if the square is attacked)
     uint64_t attacked_sqs = all_attacks(color, all_pieces.to_ullong() ^ ((uint64_t) 1 << king_sq));
+
     attacked = ~attacked_sqs & king_bit_tables[king_sq];
 
     // See if the king is in check
     in_check = attacked_sqs & (uint64_t) 1 << king_sq;
 
     // Castling squares check
-    KC_safe = (king_castle[(int) color * 2] & attacked_sqs) && (king_castle[(int) color * 2 + 1] & attacked_sqs);
-    QC_safe = (queen_castle[(int) color * 2] & attacked_sqs) && (queen_castle[(int) color * 2 + 1] & attacked_sqs);
+    KC_safe = !(king_castle[(int) color * 2] & attacked_sqs) && !(king_castle[(int) color * 2 + 1] & attacked_sqs);
+    QC_safe = !(queen_castle[(int) color * 2] & attacked_sqs) && !(queen_castle[(int) color * 2 + 1] & attacked_sqs);
 
     // Calculate pins 
     calc_pins(color, king_sq);
@@ -801,14 +811,8 @@ void Board::update_board(Color color)
                 case PieceType::KING: break;
                 default: 
                 {
-                    if (stop_check != 0) 
-                    { 
-                        stop_check = UINT64_MAX; 
-                        break;
-                    }
-
                     size_t start = x->piece_t == PieceType::BISHOP ? 4 : 0;
-                    size_t end = x->piece_t == PieceType::QUEEN ? 8 : start + 4;
+                    size_t end = x->piece_t == PieceType::ROOK ? 4 : 8;
 
                     for (; start < end; start++)
                     {
@@ -823,6 +827,11 @@ void Board::update_board(Color color)
                         
                         if (result & (uint64_t) 1 << king_sq) 
                         {
+                            if (stop_check != 0)
+                            {
+                                stop_check = UINT64_MAX;
+                                break;
+                            }
                             stop_check = result | (uint64_t) 1 << x->square;
                             break;
                         }

@@ -172,7 +172,41 @@ public:
 
     // Get turn for generating moves
     bool get_turn() { return this->turn; }
-private:
+
+    // Log all important info about the board, such as game states and possible moves
+    inline void log_all()
+    {
+        std::cout << "Turn: " << (this->turn ? "White" : "Black") << std::endl;
+        std::cout << "White KC: " << this->white_KC << std::endl;
+        std::cout << "White QC: " << this->white_QC << std::endl;
+        std::cout << "Black KC: " << this->black_KC << std::endl;
+        std::cout << "Black QC: " << this->black_QC << std::endl;
+        std::cout << "Capture type: " << (int) this->capture_type << std::endl;
+        std::cout << "EP file: " << (int) this->ep_file << std::endl;
+        std::cout << "Fifty mover: " << (int) this->fifty_mover << std::endl;
+        std::cout << "In check: " << this->in_check << std::endl;
+        std::cout << "KC safe: " << this->KC_safe << std::endl;
+        std::cout << "QC safe: " << this->QC_safe << std::endl;
+        std::cout << "Stop check: " << std::bitset<64>(this->stop_check) << std::endl;
+        std::cout << "Attacked: " << std::bitset<64>(this->attacked) << std::endl;
+        std::cout << "Pins: " << std::endl;
+        std::cout << "All Pieces: " << std::bitset<64>(this->all_pieces) << std::endl;
+        std::cout << "White Pieces: " << std::bitset<64>(this->black_pieces) << std::endl;
+        std::cout << "Black Pieces: " << std::bitset<64>(this->white_pieces) << std::endl;
+        for (int i = 0; i < 64; i++)
+        {
+            std::cout << (int) this->pins[i] << " ";
+            if (i % 8 == 7) std::cout << std::endl;
+        }
+        std::cout << std::endl;
+        auto generated_moves = this->generate_moves((Color) this->turn);
+        std::cout << "Generated moves: " << std::endl;
+        for (auto move : generated_moves)
+        {
+            std::cout << "Start: " << (int) move.start_pos << " End: " << std::bitset<64>(move.bitboard) << " Special: " << (int) move.special << std::endl;
+        }
+    }
+public:
     // Generate all legal rook moves from a piece, puts result in moves
     uint64_t sliding_moves(Piece piece);
     uint64_t knight_moves(Piece piece);
